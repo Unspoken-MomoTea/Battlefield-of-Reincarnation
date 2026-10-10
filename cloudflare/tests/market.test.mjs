@@ -2056,3 +2056,16 @@ test('moderator cancellation refunds exactly the live remaining stock',async()=>
   assert.equal((await jsonRequest(e,'/api/admin/market-listings/atomic%3Alisting/cancel',{method:'POST',headers:ha})).response.status,200);
   assert.equal(e.DB.db.prepare("SELECT COUNT(*) AS n FROM market_returns WHERE listing_id='atomic:listing'").get().n,1);
 });
+
+test('bidder can directly verify own bid receipt without relying on bounded order detail',async()=>{
+  const e=env(),owner=createUser(e,'bid-verify-owner','甲'),bidder=createUser(e,'bid-verify-user','乙');
+  const hOwner=authHeaders(e,owner,'bid-verify-owner-key'),hBid=authHeaders(e,bidder,'bid-verify-user-key');
+  assert.equal((await jsonRequest(e,'/api/market/deals',{method:'POST',headers:hOwner,
+    body:JSON.stringify({id:'check:order',title:'测试订单',wanted:'东西',offer:{coins:7}})})).response.status,201);
+  assert.equal((await jsonRequest(e,'/api/market/deals/check%3Aorder/bids',{method:'POST',headers:hBid,
+    body:JSON.stringify({id:'check:bid',offer:{coins:2}})})).response.status,201);
+  const own=await jsonRequest(e,'/api/market/deal-bids/check%3Abid',{headers:hBid});
+  assert.equal(own.response.status,200);
+  assert.equal(own.body.bid.deal_id,'check:order');
+  assert.equal((await jsonRequest(e,'/api/market/deal-bids/check%3Abid',{headers:hOwner})).response.status,404);
+});

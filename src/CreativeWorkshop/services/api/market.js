@@ -122,6 +122,10 @@ export function createMarketApi(request) {
         + encodeURIComponent(bidId) + (accepted ? '/accept' : '/reject'),
         { method: 'POST' }, true);
     },
+    getDealBid(bidId) {
+      return scopedRequest('/api/market/deal-bids/' + encodeURIComponent(bidId),
+        { cache: 'no-store' }, true);
+    },
     withdrawDealBid(bidId) {
       return scopedRequest('/api/market/deal-bids/' + encodeURIComponent(bidId) + '/withdraw',
         { method: 'POST' }, true);

@@ -151,6 +151,16 @@ export async function getMarketDeal(env, user, dealId) {
         deal.id,user.id,user.market_save_id);
   return json({ deal: decodeDeal(deal), bids: bids.map(decodeBid), owner });
 }
+export async function getMarketDealBid(env,user,bidIdValue) {
+  // Exact receipt reconciliation must not depend on a paginated bid listing.
+  const bidId=id(bidIdValue);
+  const row=await first(env,bidSelect+
+    ' WHERE b.id=? AND b.bidder_user_id=? AND b.bidder_save_id=?',
+    bidId,user.id,user.market_save_id);
+  if (!row) throw new HttpError(404,'deal_bid_not_found','原存档没有这份报价');
+  return json({bid:decodeBid(row)});
+}
+
 export async function createMarketDeal(request, env, user) {
   await assertMarketActive(env,user);
   const body = await readJson(request,{maxBytes:240*1024});

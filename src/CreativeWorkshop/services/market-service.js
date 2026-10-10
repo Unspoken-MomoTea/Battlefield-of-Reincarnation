@@ -723,10 +723,13 @@ export function createMarketService({ host, api }) {
     if (!pending) throw new Error('该笔待核对托管已完成，请刷新待恢复列表');
     let matched=false;
     try {
-      const remote=await api.getDeal(pending.dealId);
-      matched=pending.type==='deal'
-        ? Boolean(remote?.owner && remote?.deal?.id===pending.dealId)
-        : Boolean(remote?.bids?.some(bid=>bid.id===pending.bidId));
+      if(pending.type==='bid') {
+        const remote=await api.getDealBid(pending.bidId);
+        matched=Boolean(remote?.bid?.deal_id===pending.dealId);
+      }else{
+        const remote=await api.getDeal(pending.dealId);
+        matched=Boolean(remote?.owner && remote?.deal?.id===pending.dealId);
+      }
     } catch(error) {
       if (Number(error?.status)!==404) throw error;
     }
@@ -741,8 +744,11 @@ export function createMarketService({ host, api }) {
       },snapshot.saveId);
       return {status:'confirmed'};
     }
-    if (Date.now()-Number(pending.created_at||0)<120000)
+    const elapsed=Date.now()-Number(pending.created_at||0);
+    if(elapsed<120000)
       throw new Error('尚不能确认远端已完成处理。为避免重复资产，请在两分钟保护期结束后重新核对');
+    if(elapsed>24*60*60*1000)
+      throw new Error('托管已超过自动安全核对窗口，不能凭远端历史不存在就退款；请联系管理员核对，避免重复资产');
     await mutateLatest(host,next=>{
       const records=ledgerBucket(next,'pendingDealEscrows');
       const entry=records[receiptId];

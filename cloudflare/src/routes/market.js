@@ -37,7 +37,7 @@ import {
 } from '../market-orders.js';
 import {
   listMarketDeals, getMarketDeal, createMarketDeal, submitMarketBid,
-  decideMarketBid, withdrawMarketBid, closeMarketDeal,
+  decideMarketBid, withdrawMarketBid, closeMarketDeal, getMarketDealBid,
   confirmMarketDealTransfer, settleExpiredMarketDeals, getMarketDealState,
 } from '../market-deals.js';
 import { authenticatedUser } from './context.js';
@@ -91,6 +91,9 @@ export async function routeMarket(request, env, pathname) {
       if(parts[6]==='reject') return decideMarketBid(env,me,dealId,decodeURIComponent(parts[5]),false);
     }
   }
+  const bidderLookup=entityId(pathname,'deal-bids');
+  if (request.method==='GET' && bidderLookup)
+    return getMarketDealBid(env,await marketUser(request,env),bidderLookup);
   const withdrawal=entityId(pathname,'deal-bids','withdraw');
   if(request.method==='POST' && withdrawal)
     return withdrawMarketBid(env,await marketUser(request,env),withdrawal);

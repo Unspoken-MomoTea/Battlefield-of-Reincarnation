@@ -1018,7 +1018,7 @@ export async function getMarketMe(env, user) {
   );
   const listings = await all(
     env,
-    `${LISTING_SELECT} WHERE l.seller_user_id = ? AND l.save_id = ? ORDER BY l.created_at DESC LIMIT 50`,
+    `${LISTING_SELECT} WHERE l.seller_user_id = ? AND l.save_id = ? AND l.updated_at > 0 ORDER BY l.created_at DESC LIMIT 50`,
     [user.id, user.market_save_id],
   );
   const pendingDeliveries = await all(

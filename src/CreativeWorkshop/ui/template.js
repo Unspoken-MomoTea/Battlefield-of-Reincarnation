@@ -42,7 +42,7 @@ export function workshopTemplate(version) {
       <button class="rw-tab rw-nav-filter" data-category-filter="extension" data-kind-filter="store_catalog" type="button">开局商店</button>
       <div class="rw-nav-divider"></div>
       <div class="rw-nav-label" data-role="market-nav-label" hidden>交易</div>
-      <button class="rw-tab rw-market-tab" data-tab="market" type="button" hidden>空间集市 <span class="rw-market-test-badge">TEST</span></button>
+      <button class="rw-tab rw-market-tab" data-tab="market" type="button" hidden>空间集市</button>
       <div class="rw-nav-divider" data-role="market-nav-divider" hidden></div>
       <div class="rw-nav-label">个人</div>
       <button class="rw-tab" data-tab="favorites" type="button" hidden>我的收藏</button>
@@ -105,7 +105,7 @@ export function workshopTemplate(version) {
       <section class="rw-section rw-market-page rw-auction-house" data-section="market" hidden>
         <div class="rw-ah-head">
           <div class="rw-ah-title">
-            <div class="rw-ah-kicker">SPACE BAZAAR <span class="rw-market-test-badge">TEST</span></div>
+            <div class="rw-ah-kicker">SPACE BAZAAR</div>
             <h2>空间集市</h2>
             <p>参考拍卖行的信息架构：先找商品，再看最低价与库存，最后在右侧完成购买。</p>
           </div>

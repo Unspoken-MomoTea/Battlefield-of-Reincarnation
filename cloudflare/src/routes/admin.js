@@ -3,6 +3,7 @@ import { listAdminReports, resolveProjectReport } from '../moderation/reports.js
 import { listAdminUsers, setUserBan, setUserModerator } from '../moderation/users.js';
 import {
   adminCancelMarketListing,
+  adminCancelMarketDeal,
   adminSetMarketUserState,
   listAdminMarket,
 } from '../market-admin.js';
@@ -59,6 +60,11 @@ export async function routeAdmin(request, env, pathname) {
   const marketListingId = adminEntityIdFrom(pathname, 'market-listings', 'cancel');
   if (request.method === 'POST' && marketListingId) {
     return adminCancelMarketListing(env, await authenticatedUser(request, env), marketListingId);
+  }
+
+  const marketDealId = adminEntityIdFrom(pathname,'market-deals','cancel');
+  if(request.method==='POST' && marketDealId) {
+    return adminCancelMarketDeal(env,await authenticatedUser(request,env),marketDealId);
   }
 
   const marketUserId = adminEntityIdFrom(pathname, 'market-users', 'state');

@@ -99,6 +99,13 @@ export function createAdminApi(request, requestRaw) {
       return request(`/api/admin/market?${params}`, {}, true);
     },
 
+    cancelAdminMarketDeal(dealId) {
+      return request(
+        `/api/admin/market-deals/${encodeURIComponent(dealId)}/cancel`,
+        { method: 'POST' }, true,
+      );
+    },
+
     cancelAdminMarketListing(listingId) {
       return request(
         `/api/admin/market-listings/${encodeURIComponent(listingId)}/cancel`,

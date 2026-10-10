@@ -30,7 +30,7 @@ export function createAdminMarketView({
         if (!note.trim()) throw new Error('冻结市场权限必须填写原因');
         const ok = await confirmDialog({
           title: '冻结该玩家的空间集市交易权限？',
-          message: (user.display_name || '玩家') + ' 将无法继续创建挂单、购买、求购、交换或系统回收；仍可领取和撤回已有资产。',
+          message: (user.display_name || '玩家') + ' 将无法继续上架、购买、发布订单或提交报价；仍可领取和撤回已有资产。',
           confirmText: '冻结',
           danger: true,
         });
@@ -60,7 +60,10 @@ export function createAdminMarketView({
 
   const header = () => {
     const head = element('div', 'rw-admin-market-row rw-admin-market-header');
-    for (const title of ['商品 / 类型', '单价 / 数量', '状态', '卖家 / 发布者', '创建 / 到期', '管理操作']) {
+    const titles=(nodes.adminMarketView?.value==='deals')
+      ? ['订单 / 需求','发布者提供','状态 / 报价','发布者','创建 / 到期','管理操作']
+      : ['商品 / 类型','单价 / 数量','状态','卖家','创建 / 到期','管理操作'];
+    for (const title of titles) {
       head.append(element('span', '', title));
     }
     return head;
@@ -71,24 +74,31 @@ export function createAdminMarketView({
     const node = element('div', 'rw-admin-market-row');
     const actions = element('div', 'rw-admin-market-actions');
 
-    if (view === 'orders') {
+    if(view === 'deals') {
+      const assets=(item.offer?.assets||[]).map(asset=>
+        kindName(asset.kind)+' · '+asset.name+' ×'+(asset.quantity||1));
+      if(Number(item.offer?.coins)>0)assets.push(coin(item.offer.coins)+' 空间币');
       node.append(
-        cell(item.asset_name, kindName(item.asset_kind), 'rw-admin-market-item'),
-        cell(coin(item.unit_price) + ' 空间币', '剩余 ' + item.remaining_quantity),
-        cell(statusName(item.status)),
-        cell(item.buyer?.display_name || '—'),
-        cell('—', '到期 ' + when(item.expires_at)),
+        cell(item.title,item.wanted,'rw-admin-market-item'),
+        cell(assets.join(' + ')||'未提供筹码','托管资产及空间币'),
+        cell(item.status==='active'?'进行中':statusName(item.status),'收到 '+Number(item.bid_count||0)+' 份待审报价'),
+        cell(item.owner?.display_name||'—'),
+        cell(when(item.created_at),'到期 '+when(item.expires_at)),
       );
-      actions.append(...userActions(item.buyer));
-    } else if (view === 'swaps') {
-      node.append(
-        cell(item.offered?.name || '资产', '交换 → ' + (item.wanted?.name || '资产'), 'rw-admin-market-item'),
-        cell('提供 ×' + (item.offered?.quantity || 1), '需要 ×' + (item.wanted?.quantity || 1)),
-        cell(statusName(item.status)),
-        cell(item.owner?.display_name || '—'),
-        cell('—', '到期 ' + when(item.expires_at)),
-      );
-      actions.append(...userActions(item.owner));
+      if(item.status==='active') {
+        actions.append(button('强制撤销并退款','danger',async()=>{
+          const ok=await confirmDialog({
+            title:'强制撤销此自由订单？',
+            message:'发布者和所有报价者托管的资产、空间币会分别转入原存档待领取队列，不会直接销毁。',
+            confirmText:'撤销并退款',
+            danger:true,
+          });
+          if(!ok)return;
+          await workshopApi.cancelAdminMarketDeal(item.id);
+          await refresh();
+        }));
+      }
+      actions.append(...userActions(item.owner,{allowRestore:Boolean(item.owner?.market_suspended)}));
     } else {
       const flags = [
         item.risk?.suspicious ? '异常价格' : '',
@@ -124,11 +134,14 @@ export function createAdminMarketView({
 
   async function refresh() {
     try {
+      const view=nodes.adminMarketView?.value||'listings';
+      if(nodes.adminMarketRisk?.parentElement)
+        nodes.adminMarketRisk.parentElement.hidden=view==='deals';
       const result = await workshopApi.listAdminMarket({
-        view: nodes.adminMarketView?.value || 'listings',
+        view,
         query: nodes.adminMarketSearch?.value || '',
         status: nodes.adminMarketStatus?.value || '',
-        risk: Boolean(nodes.adminMarketRisk?.checked),
+        risk: view==='listings' && Boolean(nodes.adminMarketRisk?.checked),
       });
       const items = result?.items || [];
       if (!items.length) {

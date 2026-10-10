@@ -260,17 +260,30 @@ export async function closeMarketDeal(env,user,dealIdValue) {
   await assertMarketActive(env,user);
   const deal=await mustOwn(env,user,dealIdValue);
   if (deal.status!=='active') return getMarketDeal(env,user,deal.id);
+  await cancelAndRefundDeal(env,deal.id);
+  return getMarketDeal(env,user,deal.id);
+}
+async function cancelAndRefundDeal(env,dealId) {
   const timestamp=now();
-  await batch(env,[
+  const result=await batch(env,[
     db(env,'UPDATE market_deals SET status=\'cancelled\',updated_at=? WHERE id=? AND status=\'active\'',
-      timestamp,deal.id),
+      timestamp,dealId),
     db(env,sql('UPDATE market_deal_bids SET status=\'rejected\',updated_at=? WHERE deal_id=? AND status=\'pending\'',
       'AND EXISTS(SELECT 1 FROM market_deals WHERE id=? AND status=\'cancelled\')'),
-      timestamp,deal.id,deal.id),
-    ownerRefund(env,deal.id,timestamp),
-    pendingRefunds(env,deal.id,timestamp),
+      timestamp,dealId,dealId),
+    ownerRefund(env,dealId,timestamp),
+    pendingRefunds(env,dealId,timestamp),
   ]);
-  return getMarketDeal(env,user,deal.id);
+  return Boolean(result[0]?.meta?.changes);
+}
+// Called only by the moderator route after assertModerator(). Shares the exact
+// owner-cancel escrow transaction, including refunds for every losing bidder.
+export async function cancelMarketDealForModerator(env,dealIdValue) {
+  const dealId=id(dealIdValue);
+  const deal=await first(env,'SELECT * FROM market_deals WHERE id=?',dealId);
+  if(!deal)throw new HttpError(404,'deal_not_found','自由订单不存在');
+  const changed=deal.status==='active' ? await cancelAndRefundDeal(env,dealId):false;
+  return {id:dealId,owner_user_id:deal.owner_user_id,title:deal.title,changed};
 }
 async function expireDeal(env,dealId,timestamp) {
   await batch(env,[

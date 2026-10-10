@@ -2,6 +2,7 @@ import { HttpError, json, readJson } from './http.js';
 import { marketQualityHigh, marketQuality } from './market-economy.js';
 import { refreshMarketCatalogKey } from './market-catalog.js';
 import { assertModerator, moderationText, writeModerationAudit } from './moderation/common.js';
+import { cancelMarketDealForModerator } from './market-deals.js';
 
 function integer(value, fallback = 0) {
   const number = Number(value);
@@ -69,66 +70,46 @@ export async function listAdminMarket(request, env, user) {
     throw new HttpError(404, 'market_history_removed', '空间集市不再保存可查询的成交历史');
   }
 
-  if (view === 'orders') {
+  // Player-facing Orders is backed by market_deals, never the retired
+  // market_buy_orders / market_swaps tables. Old admin view values are aliases
+  // for older cached clients, preventing stale records from resurfacing.
+  if (view === 'deals' || view === 'orders' || view === 'swaps') {
     const clauses = [];
     const args = [];
-    if (status && status !== 'all') { clauses.push('o.status = ?'); args.push(status); }
-    if (query) {
-      clauses.push('(o.asset_name LIKE ? OR u.display_name LIKE ?)');
-      args.push('%' + query + '%', '%' + query + '%');
+    if (status && status !== 'all') {
+      clauses.push('d.status = ?');
+      args.push(status);
+      if (status === 'active') { clauses.push('d.expires_at > ?'); args.push(Date.now()); }
     }
-    const rows = await all(
-      env,
-      `SELECT o.*, u.display_name AS buyer_display_name, u.username AS buyer_username
-       FROM market_buy_orders o JOIN users u ON u.id = o.buyer_user_id
-       ${clauses.length ? 'WHERE ' + clauses.join(' AND ') : ''}
-       ORDER BY o.created_at DESC LIMIT ? OFFSET ?`,
-      [...args, limit, offset],
-    );
-    return json({
-      view,
-      items: rows.map(row => ({
-        id: row.id,
-        asset_kind: row.asset_kind,
-        asset_name: row.asset_name,
-        quality: row.quality,
-        unit_price: integer(row.unit_price),
-        remaining_quantity: integer(row.remaining_quantity),
-        status: row.status,
-        expires_at: integer(row.expires_at),
-        buyer: { id: integer(row.buyer_user_id), display_name: row.buyer_display_name || row.buyer_username },
-      })),
-      next_offset: rows.length >= limit ? offset + limit : null,
-    });
-  }
-
-  if (view === 'swaps') {
-    const clauses = [];
-    const args = [];
-    if (status && status !== 'all') { clauses.push('s.status = ?'); args.push(status); }
     if (query) {
-      clauses.push('(s.offered_name LIKE ? OR s.wanted_name LIKE ? OR u.display_name LIKE ?)');
+      clauses.push('(d.title LIKE ? OR d.wanted LIKE ? OR u.display_name LIKE ?)');
       args.push('%' + query + '%', '%' + query + '%', '%' + query + '%');
     }
-    const rows = await all(
-      env,
-      `SELECT s.*, u.display_name AS owner_display_name, u.username AS owner_username
-       FROM market_swaps s JOIN users u ON u.id = s.owner_user_id
+    const rows = await all(env,
+      `SELECT d.*, u.display_name AS owner_display_name,
+              u.username AS owner_username,
+              COALESCE(c.is_suspended,0) AS owner_market_suspended,
+              (SELECT COUNT(*) FROM market_deal_bids b
+               WHERE b.deal_id=d.id AND b.status='pending') AS bid_count
+       FROM market_deals d
+       JOIN users u ON u.id=d.owner_user_id
+       LEFT JOIN market_user_controls c ON c.user_id=d.owner_user_id
        ${clauses.length ? 'WHERE ' + clauses.join(' AND ') : ''}
-       ORDER BY s.created_at DESC LIMIT ? OFFSET ?`,
-      [...args, limit, offset],
+       ORDER BY d.created_at DESC LIMIT ? OFFSET ?`,
+      [...args,limit,offset],
     );
     return json({
-      view,
-      items: rows.map(row => ({
-        id: row.id,
-        offered: { kind: row.offered_kind, name: row.offered_name, quantity: integer(row.offered_quantity) },
-        wanted: { kind: row.wanted_kind, name: row.wanted_name, quality: row.wanted_quality, quantity: integer(row.wanted_quantity) },
-        status: row.status,
-        expires_at: integer(row.expires_at),
-        owner: { id: integer(row.owner_user_id), display_name: row.owner_display_name || row.owner_username },
+      view:'deals',
+      items: rows.map(row=>({
+        id:row.id, title:row.title, wanted:row.wanted,
+        offer:{coins:integer(row.offer_coins),assets:parseJson(row.offer_assets_json,[])},
+        bid_count:integer(row.bid_count),status:row.status,
+        expires_at:integer(row.expires_at),created_at:integer(row.created_at),
+        owner:{id:integer(row.owner_user_id),
+          display_name:row.owner_display_name||row.owner_username,
+          market_suspended:integer(row.owner_market_suspended)},
       })),
-      next_offset: rows.length >= limit ? offset + limit : null,
+      next_offset:rows.length>=limit ? offset+limit : null,
     });
   }
 
@@ -243,4 +224,14 @@ export async function adminSetMarketUserState(request, env, user, targetUserIdVa
     note,
   });
   return json({ user_id: targetUserId, suspended, note, updated_at: now });
+}
+
+export async function adminCancelMarketDeal(env,user,dealId) {
+  assertModerator(user);
+  const result=await cancelMarketDealForModerator(env,dealId);
+  if(result.changed)await writeModerationAudit(env,user,{
+    action:'market_deal_cancel',targetUserId:result.owner_user_id,
+    note:'强制撤销自由订单 '+result.title+' ('+result.id+')；全部托管转入原存档的待领取队列',
+  });
+  return json({ok:true,changed:result.changed});
 }

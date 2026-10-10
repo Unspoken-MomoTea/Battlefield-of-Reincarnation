@@ -495,8 +495,8 @@ export function workshopTemplate(version) {
             </select>
             <input class="rw-input grow" data-field="admin-market-search" placeholder="搜索商品或玩家">
             <select class="rw-select" data-field="admin-market-status">
-              <option value="">全部状态</option>
-              <option value="active">进行中</option>
+              <option value="active" selected>进行中</option>
+              <option value="all">全部状态</option>
               <option value="sold">已售出</option>
               <option value="cancelled">已取消</option>
               <option value="filled">已完成</option>
@@ -505,7 +505,7 @@ export function workshopTemplate(version) {
             <label class="rw-inline-check"><input type="checkbox" data-field="admin-market-risk"> 只看异常价格</label>
             <button class="rw-button" data-action="admin-market-refresh" type="button">刷新市场</button>
           </div>
-          <div class="rw-grid" data-role="admin-market-list"></div>
+          <div class="rw-admin-market-list" data-role="admin-market-list"></div>
         </div>
 
         <div data-admin-section="storage" hidden>

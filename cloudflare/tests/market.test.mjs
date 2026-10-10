@@ -1574,7 +1574,7 @@ test('negotiated deal accepts exactly one of multiple escrowed bids and refunds 
     offer:{coins:1000,assets:[item('星屑',2),{kind:'bloodline',name:'星灵血统',quantity:1,data:{名称:'星灵血统',品质:'D'}}]},
     duration_hours:48,
   })});
-  assert.equal(created.response.status,201);
+  assert.equal(created.response.status,201,JSON.stringify(created.body));
   const bidA=await jsonRequest(testEnv,'/api/market/deals/negotiated%3Adeal1/bids',{method:'POST',headers:hA,body:JSON.stringify({
     id:'negotiated:bidA',offer:{coins:500,assets:[item('治疗药剂',2)]},note:'附带治疗药剂',
   })});
@@ -1644,7 +1644,7 @@ test('negotiated deal cancellation and bid withdrawal refund all sides without a
     id:'withdraw:deal',title:'寻找装备',wanted:'任意具有防护能力的装备',
     offer:{coins:33},duration_hours:24,
   })});
-  assert.equal(deal.response.status,201);
+  assert.equal(deal.response.status,201,JSON.stringify(deal.body));
   assert.equal((await jsonRequest(testEnv,'/api/market/deals/withdraw%3Adeal/bids',
     {method:'POST',headers:hBidder,body:JSON.stringify({
       id:'withdraw:bid1',offer:{coins:50},
@@ -1676,7 +1676,7 @@ test('negotiated orders expire and every unaccepted offer becomes a persistent r
   const bidder=createUser(testEnv,'expire-deal-bidder','到期报价');
   const hOwner=authHeaders(testEnv,owner,'expire-deal-owner-session');
   const hBidder=authHeaders(testEnv,bidder,'expire-deal-bidder-session');
-  assert.equal((await jsonRequest(testEnv,'/api/market/deals',{method:'POST',headers:hOwner,body:JSON.stringify({
+  const created=await jsonRequest(testEnv,'/api/market/deals',{method:'POST',headers:hOwner,body:JSON.stringify({
     id:'expire:deal',title:'招募伙伴',wanted:'寻找侦察型伙伴',offer:{coins:700},duration_hours:24,
   })})).response.status,201);
   assert.equal((await jsonRequest(testEnv,'/api/market/deals/expire%3Adeal/bids',{method:'POST',headers:hBidder,body:JSON.stringify({

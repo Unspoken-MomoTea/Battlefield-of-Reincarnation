@@ -1559,3 +1559,222 @@ test('one-time staging stock reset hides all old auctions but preserves workshop
   const buyerState = await jsonRequest(fresh, '/api/market/me', {headers:buyerHeaders});
   assert.equal(buyerState.body.pending_deliveries.length, 1, 'pending claims are still recoverable');
 });
+
+test('negotiated deal accepts exactly one of multiple escrowed bids and refunds the others', async () => {
+  const testEnv=env();
+  const owner=createUser(testEnv,'negotiated-owner','发布者');
+  const bidderA=createUser(testEnv,'negotiated-A','竞价者甲');
+  const bidderB=createUser(testEnv,'negotiated-B','竞价者乙');
+  const hOwner=authHeaders(testEnv,owner,'negotiated-owner-session','save:owner');
+  const hA=authHeaders(testEnv,bidderA,'negotiated-a-session','save:bidder-a');
+  const hB=authHeaders(testEnv,bidderB,'negotiated-b-session','save:bidder-b');
+  const item=(name,quantity=1)=>({kind:'item',name,quantity,data:{名称:name,品质:'D',数量:quantity}});
+  const created=await jsonRequest(testEnv,'/api/market/deals',{method:'POST',headers:hOwner,body:JSON.stringify({
+    id:'negotiated:deal1',title:'寻找有治疗能力的伙伴',wanted:'不限定姓名，只要求能治疗',
+    offer:{coins:1000,assets:[item('星屑',2),{kind:'bloodline',name:'星灵血统',quantity:1,data:{名称:'星灵血统',品质:'D'}}]},
+    duration_hours:48,
+  })});
+  assert.equal(created.response.status,201,JSON.stringify(created.body));
+  const bidA=await jsonRequest(testEnv,'/api/market/deals/negotiated%3Adeal1/bids',{method:'POST',headers:hA,body:JSON.stringify({
+    id:'negotiated:bidA',offer:{coins:500,assets:[item('治疗药剂',2)]},note:'附带治疗药剂',
+  })});
+  assert.equal(bidA.response.status,201);
+  const bidB=await jsonRequest(testEnv,'/api/market/deals/negotiated%3Adeal1/bids',{method:'POST',headers:hB,body:JSON.stringify({
+    id:'negotiated:bidB',offer:{coins:0,assets:[{kind:'teammate',name:'精灵医师',quantity:1,data:{是否队友:true,好感度:70,名称:'精灵医师'}}]},
+    note:'可以群体治疗',
+  })});
+  assert.equal(bidB.response.status,201);
+  const sameBidder=await jsonRequest(testEnv,'/api/market/deals/negotiated%3Adeal1/bids',{method:'POST',headers:hA,body:JSON.stringify({
+    id:'negotiated:bidA2',offer:{coins:200},
+  })});
+  assert.equal(sameBidder.response.status,409,'a bidder can escrow only one pending bid per deal');
+  const browse=await jsonRequest(testEnv,'/api/market/deals');
+  assert.equal(browse.body.items[0].bid_count,2);
+  const guestDetail=await jsonRequest(testEnv,'/api/market/deals/negotiated%3Adeal1',{headers:hA});
+  assert.equal(guestDetail.body.bids.length,1,'other offers are private to the deal owner');
+  const ownerDetail=await jsonRequest(testEnv,'/api/market/deals/negotiated%3Adeal1',{headers:hOwner});
+  assert.equal(ownerDetail.body.bids.length,2);
+  const unauthorized=await jsonRequest(testEnv,'/api/market/deals/negotiated%3Adeal1/bids/negotiated%3AbidA/accept',
+    {method:'POST',headers:hA});
+  assert.equal(unauthorized.response.status,404);
+
+  const accepted=await jsonRequest(testEnv,'/api/market/deals/negotiated%3Adeal1/bids/negotiated%3AbidB/accept',
+    {method:'POST',headers:hOwner});
+  assert.equal(accepted.response.status,200);
+  assert.equal(accepted.body.deal.accepted_bid_id,'negotiated:bidB');
+  const repeat=await jsonRequest(testEnv,'/api/market/deals/negotiated%3Adeal1/bids/negotiated%3AbidB/accept',
+    {method:'POST',headers:hOwner});
+  assert.equal(repeat.response.status,200,'retrying accepted request is idempotent');
+  const rejected=await jsonRequest(testEnv,'/api/market/deals/negotiated%3Adeal1/bids/negotiated%3AbidA/accept',
+    {method:'POST',headers:hOwner});
+  assert.equal(rejected.response.status,409,'only one bid wins');
+
+  const ownerMe=await jsonRequest(testEnv,'/api/market/me',{headers:hOwner});
+  const winnerMe=await jsonRequest(testEnv,'/api/market/me',{headers:hB});
+  const loserMe=await jsonRequest(testEnv,'/api/market/me',{headers:hA});
+  assert.equal(ownerMe.body.pending_deal_transfers.length,1);
+  assert.equal(ownerMe.body.pending_deal_transfers[0].offer.assets[0].name,'精灵医师');
+  assert.equal(winnerMe.body.pending_deal_transfers.length,1);
+  assert.equal(winnerMe.body.pending_deal_transfers[0].offer.coins,1000);
+  assert.equal(winnerMe.body.pending_deal_transfers[0].offer.assets.length,2);
+  assert.equal(loserMe.body.pending_deal_transfers.length,1);
+  assert.equal(loserMe.body.pending_deal_transfers[0].offer.coins,500);
+  assert.equal(loserMe.body.pending_deal_transfers[0].offer.assets[0].name,'治疗药剂');
+
+  const wrongSave=authHeaders(testEnv,bidderB,'negotiated-b-other-session','save:another');
+  const id=encodeURIComponent(winnerMe.body.pending_deal_transfers[0].id);
+  assert.equal((await jsonRequest(testEnv,'/api/market/deal-transfers/'+id+'/confirmed',
+    {method:'POST',headers:wrongSave})).response.status,404,'claims belong to the originating save');
+  assert.equal((await jsonRequest(testEnv,'/api/market/deal-transfers/'+id+'/confirmed',
+    {method:'POST',headers:hB})).response.status,200);
+  assert.equal((await jsonRequest(testEnv,'/api/market/deal-transfers/'+id+'/confirmed',
+    {method:'POST',headers:hB})).response.status,200);
+  assert.equal((await jsonRequest(testEnv,'/api/market/me',{headers:hB})).body.pending_deal_transfers.length,0);
+  const transfers=testEnv.DB.db.prepare("SELECT COUNT(*) AS total FROM market_deal_transfers WHERE deal_id='negotiated:deal1'").get();
+  assert.equal(transfers.total,3,'accept retry never duplicates winner or loser receipts');
+});
+
+test('negotiated deal cancellation and bid withdrawal refund all sides without an auto-trade', async () => {
+  const testEnv=env();
+  const owner=createUser(testEnv,'withdraw-owner','撤回发单');
+  const bidder=createUser(testEnv,'withdraw-bidder','撤回报价');
+  const hOwner=authHeaders(testEnv,owner,'withdraw-owner-session','save:owner');
+  const hBidder=authHeaders(testEnv,bidder,'withdraw-bidder-session','save:bidder');
+  const deal=await jsonRequest(testEnv,'/api/market/deals',{method:'POST',headers:hOwner,body:JSON.stringify({
+    id:'withdraw:deal',title:'寻找装备',wanted:'任意具有防护能力的装备',
+    offer:{coins:33},duration_hours:24,
+  })});
+  assert.equal(deal.response.status,201,JSON.stringify(deal.body));
+  assert.equal((await jsonRequest(testEnv,'/api/market/deals/withdraw%3Adeal/bids',
+    {method:'POST',headers:hBidder,body:JSON.stringify({
+      id:'withdraw:bid1',offer:{coins:50},
+    })})).response.status,201);
+  const withdrawn=await jsonRequest(testEnv,'/api/market/deal-bids/withdraw%3Abid1/withdraw',
+    {method:'POST',headers:hBidder});
+  assert.equal(withdrawn.response.status,200);
+  assert.equal(withdrawn.body.bid.status,'withdrawn');
+  assert.equal((await jsonRequest(testEnv,'/api/market/me',{headers:hBidder}))
+    .body.pending_deal_transfers[0].offer.coins,50);
+  const closed=await jsonRequest(testEnv,'/api/market/deals/withdraw%3Adeal/cancel',
+    {method:'POST',headers:hOwner});
+  assert.equal(closed.response.status,200);
+  assert.equal(closed.body.deal.status,'cancelled');
+  const again=await jsonRequest(testEnv,'/api/market/deals/withdraw%3Adeal/cancel',
+    {method:'POST',headers:hOwner});
+  assert.equal(again.response.status,200);
+  assert.equal((await jsonRequest(testEnv,'/api/market/me',{headers:hOwner}))
+    .body.pending_deal_transfers[0].offer.coins,33);
+  assert.equal(testEnv.DB.db.prepare("SELECT COUNT(*) AS count FROM market_deal_transfers WHERE deal_id='withdraw:deal'").get().count,2);
+  const after=await jsonRequest(testEnv,'/api/market/deals/withdraw%3Adeal/bids',
+    {method:'POST',headers:hBidder,body:JSON.stringify({id:'withdraw:late',offer:{coins:1}})});
+  assert.equal(after.response.status,409);
+});
+
+test('negotiated orders expire and every unaccepted offer becomes a persistent refund claim',async()=>{
+  const testEnv=env();
+  const owner=createUser(testEnv,'expire-deal-owner','到期发单');
+  const bidder=createUser(testEnv,'expire-deal-bidder','到期报价');
+  const hOwner=authHeaders(testEnv,owner,'expire-deal-owner-session');
+  const hBidder=authHeaders(testEnv,bidder,'expire-deal-bidder-session');
+  const created=await jsonRequest(testEnv,'/api/market/deals',{method:'POST',headers:hOwner,body:JSON.stringify({
+    id:'expire:deal',title:'招募伙伴',wanted:'寻找侦察型伙伴',offer:{coins:700},duration_hours:24,
+  })});
+  assert.equal(created.response.status,201,JSON.stringify(created.body));
+  assert.equal((await jsonRequest(testEnv,'/api/market/deals/expire%3Adeal/bids',{method:'POST',headers:hBidder,body:JSON.stringify({
+    id:'expire:bid',offer:{coins:10},note:'我想尝试',
+  })})).response.status,201);
+  testEnv.DB.db.prepare("UPDATE market_deals SET expires_at=? WHERE id='expire:deal'").run(Date.now()-1000);
+  const browse=await jsonRequest(testEnv,'/api/market/deals');
+  assert.equal(browse.body.items.length,0);
+  const ownerMe=await jsonRequest(testEnv,'/api/market/me',{headers:hOwner});
+  const bidderMe=await jsonRequest(testEnv,'/api/market/me',{headers:hBidder});
+  assert.equal(ownerMe.body.pending_deal_transfers[0].offer.coins,700);
+  assert.equal(bidderMe.body.pending_deal_transfers[0].offer.coins,10);
+  assert.equal(testEnv.DB.db.prepare("SELECT status FROM market_deal_bids WHERE id='expire:bid'").get().status,'rejected');
+});
+
+test('manual rejection refunds a bidder without ending the original public order',async()=>{
+  const testEnv=env();
+  const owner=createUser(testEnv,'reject-deal-owner','拒绝发单');
+  const guest=createUser(testEnv,'reject-deal-guest','被拒绝者');
+  const hOwner=authHeaders(testEnv,owner,'reject-owner-session');
+  const hGuest=authHeaders(testEnv,guest,'reject-guest-session');
+  const create=await jsonRequest(testEnv,'/api/market/deals',{method:'POST',headers:hOwner,body:JSON.stringify({
+    id:'reject:deal',title:'需要星界工具',wanted:'能在星界导航的任意工具',
+    offer:{coins:111},duration_hours:24,
+  })});
+  assert.equal(create.response.status,201);
+  const bid=await jsonRequest(testEnv,'/api/market/deals/reject%3Adeal/bids',{
+    method:'POST',headers:hGuest,body:JSON.stringify({
+      id:'reject:offer',offer:{coins:222},note:'具体工具可商量',
+    }),
+  });
+  assert.equal(bid.response.status,201);
+  const denied=await jsonRequest(testEnv,
+    '/api/market/deals/reject%3Adeal/bids/reject%3Aoffer/reject',{method:'POST',headers:hOwner});
+  assert.equal(denied.response.status,200);
+  assert.equal(denied.body.deal.status,'active');
+  assert.equal(denied.body.bids[0].status,'rejected');
+  assert.equal((await jsonRequest(testEnv,'/api/market/me',{headers:hGuest}))
+    .body.pending_deal_transfers[0].offer.coins,222);
+  assert.equal((await jsonRequest(testEnv,'/api/market/deals')).body.items.length,1);
+});
+
+test('long valid bid ids still produce redeemable refund transfer identifiers',async()=>{
+  const testEnv=env();
+  const owner=createUser(testEnv,'long-id-owner','长号发单');
+  const guest=createUser(testEnv,'long-id-guest','长号报价');
+  const hOwner=authHeaders(testEnv,owner,'long-id-owner-session');
+  const hGuest=authHeaders(testEnv,guest,'long-id-guest-session');
+  const orderId='D'.repeat(96),bidId='B'.repeat(96);
+  assert.equal((await jsonRequest(testEnv,'/api/market/deals',{
+    method:'POST',headers:hOwner,body:JSON.stringify({
+      id:orderId,title:'长单测试',wanted:'装备',offer:{coins:1},
+    }),
+  })).response.status,201);
+  assert.equal((await jsonRequest(testEnv,'/api/market/deals/'+orderId+'/bids',{
+    method:'POST',headers:hGuest,body:JSON.stringify({id:bidId,offer:{coins:1}}),
+  })).response.status,201);
+  assert.equal((await jsonRequest(testEnv,'/api/market/deal-bids/'+bidId+'/withdraw',{
+    method:'POST',headers:hGuest,
+  })).response.status,200);
+  const pending=(await jsonRequest(testEnv,'/api/market/me',{headers:hGuest}))
+    .body.pending_deal_transfers;
+  assert.equal(pending.length,1);
+  assert.ok(pending[0].id.length>96);
+  assert.equal((await jsonRequest(testEnv,'/api/market/deal-transfers/'+encodeURIComponent(pending[0].id)+'/confirmed',{
+    method:'POST',headers:hGuest,
+  })).response.status,200);
+});
+
+test('negotiated order receipts only disappear after all claimants confirmed',async()=>{
+  const testEnv=env();
+  const owner=createUser(testEnv,'clean-deal-owner','清理发单');
+  const guest=createUser(testEnv,'clean-deal-guest','清理报价');
+  const hOwner=authHeaders(testEnv,owner,'clean-deal-owner-session');
+  const hGuest=authHeaders(testEnv,guest,'clean-deal-guest-session');
+  assert.equal((await jsonRequest(testEnv,'/api/market/deals',{
+    method:'POST',headers:hOwner,body:JSON.stringify({
+      id:'clean:deal',title:'清理订单',wanted:'寻找材料',offer:{coins:10},
+    }),
+  })).response.status,201);
+  assert.equal((await jsonRequest(testEnv,'/api/market/deals/clean%3Adeal/bids',{
+    method:'POST',headers:hGuest,body:JSON.stringify({id:'clean:bid',offer:{coins:5}}),
+  })).response.status,201);
+  await jsonRequest(testEnv,'/api/market/deals/clean%3Adeal/cancel',{method:'POST',headers:hOwner});
+  const old=Date.now()-3*86400000;
+  testEnv.DB.db.prepare("UPDATE market_deals SET updated_at=? WHERE id='clean:deal'").run(old);
+  testEnv.DB.db.prepare("UPDATE market_deal_bids SET updated_at=? WHERE deal_id='clean:deal'").run(old);
+  await cleanupCompletedMarketRecords(testEnv);
+  assert.equal(testEnv.DB.db.prepare("SELECT COUNT(*) AS count FROM market_deals WHERE id='clean:deal'").get().count,1);
+  for(const headers of [hOwner,hGuest]){
+    const claim=(await jsonRequest(testEnv,'/api/market/me',{headers})).body.pending_deal_transfers[0];
+    assert.equal((await jsonRequest(testEnv,'/api/market/deal-transfers/'+claim.id+'/confirmed',{
+      method:'POST',headers,
+    })).response.status,200);
+  }
+  testEnv.DB.db.prepare("UPDATE market_deal_transfers SET confirmed_at=? WHERE deal_id='clean:deal'").run(old);
+  await cleanupCompletedMarketRecords(testEnv);
+  assert.equal(testEnv.DB.db.prepare("SELECT COUNT(*) AS count FROM market_deal_transfers WHERE deal_id='clean:deal'").get().count,0);
+  assert.equal(testEnv.DB.db.prepare("SELECT COUNT(*) AS count FROM market_deals WHERE id='clean:deal'").get().count,0);
+});

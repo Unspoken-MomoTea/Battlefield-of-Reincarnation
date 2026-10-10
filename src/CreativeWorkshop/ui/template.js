@@ -204,13 +204,13 @@ export function workshopTemplate(version) {
         <div class="rw-ah-panel" data-market-panel="orders" hidden>
           <div class="rw-ah-orders-head">
             <div class="rw-ah-orders-tabs">
-              <button class="rw-ah-subtab is-active" data-market-order-view="buy" type="button">求购</button>
-              <button class="rw-ah-subtab" data-market-order-view="swap" type="button">交换</button>
+              <button class="rw-ah-subtab is-active" data-market-order-view="all" type="button">所有订单</button>
+              <button class="rw-ah-subtab" data-market-order-view="mine" type="button">我的订单</button>
             </div>
             <div class="rw-ah-orders-actions">
-              <button class="rw-button primary" data-action="market-order-create" type="button">创建求购</button>
-              <button class="rw-button" data-action="market-swap-create" type="button">创建交换</button>
-              <button class="rw-button" data-action="market-order-examples" type="button" hidden>查看示例</button>
+              <button class="rw-button primary" data-action="market-order-create" type="button">发布订单</button>
+              
+              
               <button class="rw-button" data-action="market-order-refresh" type="button">刷新</button>
             </div>
           </div>
@@ -220,7 +220,7 @@ export function workshopTemplate(version) {
               <div class="rw-ah-empty-inspector">
                 <div class="rw-ah-empty-icon">◇</div>
                 <strong>选择一个订单</strong>
-                <span>公开的求购与交换仅在此展示。测试版可点「查看示例」，预览自由协商流程；示例不可交易。</span>
+                <span>公开订单允许多人各自报价。发布者查看具体资产后，只能选择成交其中一份，其余自动退还。</span>
               </div>
             </aside>
           </div>

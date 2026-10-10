@@ -15,6 +15,7 @@ import {
   refreshMarketCatalogKey,
 } from './market-catalog.js';
 import { getMarketOrderState, settleExpiredMarketOrders } from './market-orders.js';
+import { getMarketDealState } from './market-deals.js';
 
 const MARKET_KINDS = new Set(['equipment', 'item', 'skill', 'bloodline', 'form', 'teammate']);
 const MARKET_ID_RE = /^[A-Za-z0-9:_-]{6,96}$/u;
@@ -1062,6 +1063,7 @@ export async function getMarketMe(env, user) {
     [user.id, user.market_save_id],
   );
   const orderState = await getMarketOrderState(env, user);
+  const dealState = await getMarketDealState(env, user);
   // Listing slots are save-specific, just like inventory and escrow.
   // Orphaned listings from deleted or abandoned saves must not use another save's quota.
   const activeCount = await first(env,
@@ -1082,5 +1084,6 @@ export async function getMarketMe(env, user) {
     pending_returns: pendingReturns.map(returnFromRow),
     pending_payouts: pendingPayouts.map(payoutFromRow),
     ...orderState,
+    ...dealState,
   });
 }

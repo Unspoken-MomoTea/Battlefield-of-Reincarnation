@@ -35,6 +35,11 @@ import {
   listMarketBuyOrders,
   listMarketSwaps,
 } from '../market-orders.js';
+import {
+  listMarketDeals, getMarketDeal, createMarketDeal, submitMarketBid,
+  decideMarketBid, withdrawMarketBid, closeMarketDeal,
+  confirmMarketDealTransfer, settleExpiredMarketDeals, getMarketDealState,
+} from '../market-deals.js';
 import { authenticatedUser } from './context.js';
 
 async function marketUser(request, env) {
@@ -63,6 +68,37 @@ function entityId(pathname, entity, suffix = '') {
 
 export async function routeMarket(request, env, pathname) {
   if (!marketEnabled(env)) return null;
+  if (pathname === '/api/market/deals' && request.method === 'GET') {
+    await settleExpiredMarketDeals(env);
+    return listMarketDeals(request,env);
+  }
+  if (pathname === '/api/market/deals' && request.method === 'POST')
+    return createMarketDeal(request,env,await marketUser(request,env));
+  if (pathname === '/api/market/deals/me' && request.method === 'GET')
+    return getMarketDealState(env,await marketUser(request,env));
+  const parts=pathname.split('/').filter(Boolean);
+  if(parts[0]==='api' && parts[1]==='market' && parts[2]==='deals' && parts.length>=4) {
+    const me=await marketUser(request,env);
+    const dealId=decodeURIComponent(parts[3]);
+    if(parts.length===4 && request.method==='GET')
+      return getMarketDeal(env,me,dealId);
+    if(parts.length===5 && parts[4]==='bids' && request.method==='POST')
+      return submitMarketBid(request,env,me,dealId);
+    if(parts.length===5 && parts[4]==='cancel' && request.method==='POST')
+      return closeMarketDeal(env,me,dealId);
+    if(parts.length===7 && parts[4]==='bids' && request.method==='POST') {
+      if(parts[6]==='accept') return decideMarketBid(env,me,dealId,decodeURIComponent(parts[5]),true);
+      if(parts[6]==='reject') return decideMarketBid(env,me,dealId,decodeURIComponent(parts[5]),false);
+    }
+  }
+  const withdrawal=entityId(pathname,'deal-bids','withdraw');
+  if(request.method==='POST' && withdrawal)
+    return withdrawMarketBid(env,await marketUser(request,env),withdrawal);
+  const confirmation=entityId(pathname,'deal-transfers','confirmed');
+  if(request.method==='POST' && confirmation)
+    return confirmMarketDealTransfer(env,await marketUser(request,env),confirmation);
+
+
 
   if (request.method === 'GET' && pathname === '/api/market/catalog') {
     await prepareMarketBrowse(env);

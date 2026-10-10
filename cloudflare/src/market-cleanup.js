@@ -93,5 +93,24 @@ export async function cleanupCompletedMarketRecords(env, { limit = 200, now = Da
          AND NOT EXISTS (SELECT 1 FROM market_returns r WHERE r.listing_id = l.id)
          AND NOT EXISTS (SELECT 1 FROM market_recycles c WHERE c.listing_id = l.id)
        LIMIT ?)`, [cutoff, batch]);
+  // Temporary negotiated-order receipts are not a permanent trade history.
+  // Never remove an order while any winner, loser or cancel refund is unclaimed.
+  removed.dealTransfers = await prune(env, 'market_deal_transfers',
+    `DELETE FROM market_deal_transfers WHERE id IN (
+       SELECT id FROM market_deal_transfers
+       WHERE confirmed_at IS NOT NULL AND confirmed_at < ? LIMIT ?)`, [cutoff,batch]);
+  removed.dealBids = await prune(env, 'market_deal_bids',
+    `DELETE FROM market_deal_bids WHERE id IN (
+       SELECT b.id FROM market_deal_bids b JOIN market_deals d ON d.id=b.deal_id
+       WHERE b.status <> 'pending' AND b.updated_at < ? AND d.status <> 'active'
+         AND NOT EXISTS (
+           SELECT 1 FROM market_deal_transfers t WHERE t.deal_id=b.deal_id)
+       LIMIT ?)`, [cutoff,batch]);
+  removed.deals = await prune(env, 'market_deals',
+    `DELETE FROM market_deals WHERE id IN (
+       SELECT d.id FROM market_deals d WHERE d.status <> 'active' AND d.updated_at < ?
+         AND NOT EXISTS (SELECT 1 FROM market_deal_bids b WHERE b.deal_id=d.id)
+         AND NOT EXISTS (SELECT 1 FROM market_deal_transfers t WHERE t.deal_id=d.id)
+       LIMIT ?)`, [cutoff,batch]);
   return removed;
 }

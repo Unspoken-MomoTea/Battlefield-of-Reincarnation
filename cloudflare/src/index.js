@@ -3,6 +3,7 @@ import { guardRequest } from './middleware/request-guard.js';
 import { routeRequest } from './router.js';
 import { settleExpiredMarketListings } from './market.js';
 import { settleExpiredMarketOrders } from './market-orders.js';
+import { settleExpiredMarketDeals } from './market-deals.js';
 import { cleanupCompletedMarketRecords } from './market-cleanup.js';
 
 export const SERVICE_VERSION = '0.13.15';
@@ -39,6 +40,7 @@ export default {
       await Promise.all([
         settleExpiredMarketListings(env, { limit: 500 }),
         settleExpiredMarketOrders(env, { limit: 500 }),
+        settleExpiredMarketDeals(env, { limit: 500 }),
       ]);
       return cleanupCompletedMarketRecords(env, { limit: 500 });
     })();

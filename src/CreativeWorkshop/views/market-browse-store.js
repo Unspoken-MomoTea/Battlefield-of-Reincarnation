@@ -98,6 +98,66 @@ export function createMarketBrowseStore({
   let generation = 0;
   const detailCache = new Map();
   const detailRequests = new Map();
+  // Public browse is server-paged; the legacy complete snapshot is retained
+  // only for the seller's local reference-price inspector.
+  let visiblePage = null;
+  let pageFilterKey = '';
+  let pageGeneration = 0;
+  const pageCache = new Map();
+  const pageMeta = new Map();
+  const PAGE_SIZE = 50;
+  const emptyPage = () => ({
+    items: [], counts: {}, facets:{qualities:[],subtypes:[]},
+    offset:0,next_offset:null,loaded_at:0,
+  });
+
+  async function fetchPage(filters = {}, offset = 0, { force = false } = {}) {
+    const key = JSON.stringify(filters);
+    const cacheKey = key+':'+offset;
+    const requestId = ++pageGeneration;
+    if (!force && pageCache.has(cacheKey)) {
+      pageFilterKey = key;
+      visiblePage = pageCache.get(cacheKey);
+      return visiblePage;
+    }
+    const next = await marketService.catalog({...filters,limit:PAGE_SIZE,offset});
+    if (requestId !== pageGeneration) return visiblePage;
+    if (offset === 0) {
+      pageMeta.set(key,{counts:{...(next?.counts||{})},
+        facets:{...(next?.facets||{qualities:[],subtypes:[]})}});
+      if (pageMeta.size>16) pageMeta.delete(pageMeta.keys().next().value);
+    }
+    const meta = pageMeta.get(key) || {counts:{},facets:{qualities:[],subtypes:[]}};
+    visiblePage = {
+      items:Array.isArray(next?.items)?next.items.slice():[],
+      counts:{...meta.counts},facets:meta.facets,
+      next_offset:next?.next_offset??null,offset,loaded_at:now(),
+    };
+    pageFilterKey=key;
+    pageCache.set(cacheKey,visiblePage);
+    if (pageCache.size>16) pageCache.delete(pageCache.keys().next().value);
+    return visiblePage;
+  }
+
+  async function ensurePage(filters = {}) {
+    if (visiblePage && pageFilterKey===JSON.stringify(filters)) return visiblePage;
+    return fetchPage(filters,0);
+  }
+  async function refreshPage(filters = {}) {
+    return fetchPage(filters,0,{force:true});
+  }
+  function pageQuery(filters = {}) {
+    return visiblePage && pageFilterKey===JSON.stringify(filters)
+      ? visiblePage : emptyPage();
+  }
+  async function nextPage(filters = {}) {
+    const current=await ensurePage(filters);
+    return current?.next_offset==null?current:fetchPage(filters,current.next_offset);
+  }
+  async function previousPage(filters = {}) {
+    const current=await ensurePage(filters);
+    return !current?.offset?current:fetchPage(filters,Math.max(0,current.offset-PAGE_SIZE));
+  }
 
   async function refresh() {
     if (pendingSnapshot) return pendingSnapshot;
@@ -177,6 +237,8 @@ export function createMarketBrowseStore({
   }
 
   function invalidate({ details = true } = {}) {
+    visiblePage=null;pageFilterKey='';pageGeneration++;
+    pageCache.clear();pageMeta.clear();
     snapshot = null;
     pendingSnapshot = null;
     generation += 1;
@@ -202,6 +264,7 @@ export function createMarketBrowseStore({
     ensureSnapshot,
     append,
     query,
+    ensurePage,refreshPage,pageQuery,nextPage,previousPage,
     item,
     peekDetail,
     detail,

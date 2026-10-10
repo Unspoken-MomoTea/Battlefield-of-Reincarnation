@@ -32,6 +32,8 @@ export function collectWorkshopNodes(overlay) {
     marketSort: query('[data-field="market-sort"]'),
     marketSearchButton: query('[data-action="market-search"]'),
     marketMore: query('[data-action="market-more"]'),
+    marketPrev: query('[data-action="market-prev"]'),
+    marketPage: query('[data-role="market-page"]'),
     marketCount: query('[data-role="market-count"]'),
     marketList: query('[data-role="market-list"]'),
     marketModes: queryAll('[data-market-mode]'),

@@ -169,7 +169,11 @@ export function workshopTemplate(version) {
                 <span>单价</span>
               </div>
               <div class="rw-ah-list" data-role="market-list"></div>
-              <div class="rw-ah-load-more"><button class="rw-button" data-action="market-more" type="button" hidden>加载更多商品</button></div>
+              <div class="rw-ah-load-more">
+                <button class="rw-button" data-action="market-prev" type="button" hidden>← 上一页</button>
+                <span class="rw-ah-page-text" data-role="market-page">第 1 页</span>
+                <button class="rw-button" data-action="market-more" type="button" hidden>下一页 →</button>
+              </div>
             </section>
 
             <aside class="rw-ah-inspector" data-role="market-inspector">

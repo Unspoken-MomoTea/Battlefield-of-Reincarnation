@@ -335,7 +335,7 @@ export function createMarketView({
     if (mode !== 'browse') requireLogin();
     currentMode = mode;
     setModeVisuals();
-    if (mode === 'browse' && !browseStore.query().loaded_at) await refresh();
+    if (mode === 'browse' && !browseStore.pageQuery(browseFilters()).loaded_at) await refresh();
     if (mode === 'sell' && !browseStore.query().loaded_at) {
       void browseStore.ensureSnapshot().catch(() => {});
     }
@@ -444,16 +444,19 @@ export function createMarketView({
     }
     const listingCount = Object.values(catalogCounts || {}).reduce((sum, value) => sum + Number(value || 0), 0);
     nodes.marketCount.textContent = catalogItems.length + ' 种商品 · ' + listingCount + ' 个当前挂单';
-    if (nodes.marketMore) nodes.marketMore.hidden = browseStore.query().next_offset == null;
+    const page=browseStore.pageQuery(browseFilters());
+    if (nodes.marketMore) nodes.marketMore.hidden = page.next_offset == null;
+    if (nodes.marketPrev) nodes.marketPrev.hidden = !page.offset;
+    if (nodes.marketPage) nodes.marketPage.textContent = '第 '+(Math.floor((page.offset||0)/50)+1)+' 页 · 每页最多 50 种';
     renderCategoryCounts();
   }
 
   async function loadCatalog({ force = false } = {}) {
     const filters = browseFilters();
-    if (force) await browseStore.refresh(filters);
-    else await browseStore.ensureSnapshot(filters);
+    if (force) await browseStore.refreshPage(filters);
+    else await browseStore.ensurePage(filters);
 
-    const result = browseStore.query(filters);
+    const result = browseStore.pageQuery(filters);
     catalogItems = result.items;
     catalogCounts = result.counts;
     catalogFacets = result.facets;
@@ -1277,12 +1280,21 @@ export function createMarketView({
   nodes.marketMinPrice?.addEventListener('change', applyBrowseFilters);
   nodes.marketMaxPrice?.addEventListener('change', applyBrowseFilters);
   nodes.marketMore?.addEventListener('click', () => {
-    void browseStore.append().then(() => {
-      const result = browseStore.query(browseFilters());
+    void browseStore.nextPage(browseFilters()).then(() => {
+      const result = browseStore.pageQuery(browseFilters());
+      selectedKey='';selectedDetail=null;
       catalogItems = result.items;
       catalogCounts = result.counts;
       catalogFacets = result.facets;
       renderCatalogRows();
+    }).catch(notifyError);
+  });
+  nodes.marketPrev?.addEventListener('click', () => {
+    void browseStore.previousPage(browseFilters()).then(() => {
+      const result=browseStore.pageQuery(browseFilters());
+      selectedKey='';selectedDetail=null;
+      catalogItems=result.items;catalogCounts=result.counts;catalogFacets=result.facets;
+      syncSubtypeOptions();renderCatalogRows();
     }).catch(notifyError);
   });
   nodes.marketMineRefresh?.addEventListener('click', () => {

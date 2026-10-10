@@ -107,11 +107,18 @@ test('selling asset changes display immediately despite stalled market and walle
   assert.equal(entries.length, 2);
   entries[0].click();
   const first = nodes.marketSellEditor.children[0];
-  assert.ok(first.querySelector('h3'));
+  assert.equal(first.querySelector('h3'), null, 'sell details should not repeat the selected item name');
   assert.ok(first.querySelectorAll('.rw-ah-sell-form').length);
-  assert.equal(first.querySelector('h3').textContent, '长剑');
+  const qualityRow = first.querySelectorAll('.rw-ah-data-row')
+    .find(row => row.children[0].textContent === '品质');
+  assert.ok(qualityRow, 'asset data should retain a quality row');
+  assert.equal(qualityRow.children[1].textContent, 'E');
+  assert.equal(qualityRow.children[1].dataset.quality, 'E', 'quality should use the rank color mapping');
   entries[1].click();
-  assert.equal(nodes.marketSellEditor.children[0].querySelector('h3').textContent, '药剂');
+  const second = nodes.marketSellEditor.children[0];
+  assert.equal(second.querySelector('h3'), null, 'next selection must not restore duplicate headings');
+  assert.ok(second.querySelectorAll('.rw-ah-data-row')
+    .some(row => row.children[0].textContent === '品质'));
   assert.equal(nodes.marketSellList.querySelectorAll('.rw-ah-inventory-row')[0], entries[0],
     'selecting must not recreate all inventory rows');
   assert.equal(catalogRequests, 1, 'single background catalog warmup');

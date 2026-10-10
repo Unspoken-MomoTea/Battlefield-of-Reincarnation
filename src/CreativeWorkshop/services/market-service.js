@@ -123,6 +123,22 @@ function ledgerBucket(data, key) {
   return root[key];
 }
 
+// Confirmed receipt IDs are a short replay-safety window, not a permanent
+// transaction history. An unacknowledged receipt must never be evicted.
+export function pruneAcknowledgedMarketReceipts(data, limit = 512) {
+  const root = ledger(data);
+  const confirmed = [];
+  for (const name of ['dealTransfers','deliveries','returns','payouts','orderDeliveries','swapTransfers']) {
+    for (const [id, entry] of Object.entries(root[name] || {})) {
+      if (entry && typeof entry === 'object' && entry.acknowledged === true)
+        confirmed.push({name, id, time:Number(entry.at || 0)});
+    }
+  }
+  confirmed.sort((a,b) => a.time-b.time);
+  for (const {name,id} of confirmed.slice(0,Math.max(0,confirmed.length-limit))) delete root[name][id];
+  return Math.max(0,confirmed.length-limit);
+}
+
 function receiptAsset(asset, quantity) {
   const label = MARKET_KIND_LABELS[asset?.kind] || '资产';
   const name = String(asset?.name || '未知资产').replace(/[\r\n]+/gu, ' ').trim();
@@ -507,6 +523,21 @@ export function createMarketService({ host, api }) {
     }, saveId);
   }
 
+  async function acknowledgeLocalReceipt(saveId, bucket, id) {
+    // Only prune entries after the remote confirmation succeeds. If the
+    // confirmation fails, preserve the dedup marker for future retries.
+    try {
+      await mutateLatest(host, next => {
+        const entries = ledgerBucket(next,bucket);
+        if (!entries[id]) return;
+        entries[id] = {acknowledged:true,at:Date.now()};
+        pruneAcknowledgedMarketReceipts(next);
+      },saveId);
+    } catch {
+      // Remote already acknowledged; a failed local compaction is recoverable.
+    }
+  }
+
   async function inventory() {
     return marketInventoryFromData(readLatest(host).data);
   }
@@ -716,6 +747,7 @@ export function createMarketService({ host, api }) {
         +(amount?'｜入账 '+coin(amount):'｜资产已领取'));
     },saveId);
     await api.confirmDealTransfer(transfer.id);
+    await acknowledgeLocalReceipt(saveId,'dealTransfers',transfer.id);
     return transfer;
   }
 
@@ -1026,6 +1058,7 @@ export function createMarketService({ host, api }) {
         + '｜原求购托管成交 ' + coin(fill.total_price));
     });
     await api.confirmMarketOrderDelivery(fill.id);
+    await acknowledgeLocalReceipt(receiptSaveId,'orderDeliveries',fill.id);
     return fill;
   }
 
@@ -1159,6 +1192,7 @@ export function createMarketService({ host, api }) {
         '[空间集市交换领取][角色] 领取' + receiptAsset(transfer.asset, transfer.quantity));
     });
     await api.confirmMarketSwapTransfer(transfer.id);
+    await acknowledgeLocalReceipt(receiptSaveId,'swapTransfers',transfer.id);
     return transfer;
   }
 
@@ -1184,6 +1218,7 @@ export function createMarketService({ host, api }) {
         + '｜余额 ' + coin(next.stat_data.角色.空间币));
     });
     await api.confirmMarketDelivery(trade.id);
+    await acknowledgeLocalReceipt(receiptSaveId,'deliveries',trade.id);
     return trade;
   }
 
@@ -1326,6 +1361,7 @@ export function createMarketService({ host, api }) {
         '[空间集市取回资产][角色] ' + receiptAsset(returnRecord.asset, returnRecord.quantity));
     });
     await api.confirmMarketReturn(returnRecord.id);
+    await acknowledgeLocalReceipt(receiptSaveId,'returns',returnRecord.id);
     return returnRecord;
   }
 
@@ -1347,6 +1383,7 @@ export function createMarketService({ host, api }) {
         + '｜余额 ' + coin(next.stat_data.角色.空间币));
     });
     await api.confirmMarketPayout(payout.id);
+    await acknowledgeLocalReceipt(receiptSaveId,'payouts',payout.id);
     return payout;
   }
 

@@ -1194,7 +1194,8 @@ export function createMarketView({
         .concat((state.pending_returns || []).map(value => ({ type: 'return', value })))
         .concat((state.pending_payouts || []).map(value => ({ type: 'payout', value })))
         .concat((state.pending_order_deliveries || []).map(value => ({ type: 'order', value })))
-        .concat((state.pending_swap_transfers || []).map(value => ({ type: 'swap', value })));
+        .concat((state.pending_swap_transfers || []).map(value => ({ type: 'swap', value })))
+        .concat((state.pending_deal_transfers || []).map(value => ({ type: 'deal', value })));
       const recovery = section('待领取 / 待恢复', String(pending.length));
       if (!pending.length) recovery.append(element('div', 'rw-ah-muted-line', '没有待恢复事务。'));
       if (pending.length) {
@@ -1205,6 +1206,7 @@ export function createMarketView({
             else if (entry.type === 'payout') await marketService.receivePayout(entry.value);
             else if (entry.type === 'order') await marketService.deliverOrderFill(entry.value);
             else if (entry.type === 'swap') await marketService.receiveSwapTransfer(entry.value);
+            else if (entry.type === 'deal') await marketService.receiveDealTransfer(entry.value);
           }
           invalidateTradingViews();
           await renderMineMode();
@@ -1219,8 +1221,14 @@ export function createMarketView({
           payout: '货款待写入',
           order: '求购待领取',
           swap: '交换待领取',
+          deal: '自由订单待领取／退还',
         }[entry.type];
-        const assetName = value.asset?.name || (entry.type === 'payout' ? coin(value.amount) + ' 空间币' : '资产');
+        const offered = (value.offer?.assets || []).map(asset =>
+          (asset.name || '资产') + ' ×' + (asset.quantity || 1)).join(' + ');
+        const dealCoins = Number(value.offer?.coins || 0);
+        const assetName = entry.type === 'deal'
+          ? [offered,dealCoins ? coin(dealCoins)+' 空间币' : ''].filter(Boolean).join(' + ')
+          : (value.asset?.name || (entry.type === 'payout' ? coin(value.amount) + ' 空间币' : '资产'));
         recovery.append(transactionRow(
           title + ' · ' + assetName + (value.asset ? ' ×' + (value.quantity || value.asset.quantity || 1) : ''),
           when(value.created_at),
@@ -1230,6 +1238,7 @@ export function createMarketView({
             else if (entry.type === 'payout') await marketService.receivePayout(value);
             else if (entry.type === 'order') await marketService.deliverOrderFill(value);
             else if (entry.type === 'swap') await marketService.receiveSwapTransfer(value);
+            else if (entry.type === 'deal') await marketService.receiveDealTransfer(value);
             invalidateTradingViews();
             await renderMineMode();
             await refreshSummary();

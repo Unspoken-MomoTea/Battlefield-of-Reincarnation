@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createMarketService, marketInventoryFromData, marketItemStorageSlot, appendMarketBroadcast } from '../services/market-service.js';
+import { createMarketService, marketInventoryFromData, marketItemStorageSlot, appendMarketBroadcast, pruneAcknowledgedMarketReceipts } from '../services/market-service.js';
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -1095,4 +1095,17 @@ test('negotiated escrow claims are exact-once per save, and winning teammates lo
   host.setChatId('different-save');
   await assert.rejects(service.receiveDealTransfer({...refund,id:'refund:other',save_id:'my-original-save'}),
     /另一个存档/u);
+});
+
+test('replay protection keeps pending receipts while bounding acknowledged MVU records',()=>{
+  const data={__reincarnationMarketLedger:{
+    deliveries:{'retry:unconfirmed':Date.now()},
+    dealTransfers:Object.fromEntries(Array.from({length:600},(_,i)=>['settled:'+i,
+      {acknowledged:true,at:i+1}])),
+  }};
+  const removed=pruneAcknowledgedMarketReceipts(data,512);
+  assert.equal(removed,88);
+  assert.equal(Object.keys(data.__reincarnationMarketLedger.dealTransfers).length,512);
+  assert.equal(data.__reincarnationMarketLedger.deliveries['retry:unconfirmed']>0,true);
+  assert.equal(data.__reincarnationMarketLedger.dealTransfers['settled:599'].acknowledged,true);
 });

@@ -62,6 +62,11 @@ export async function routeAdmin(request, env, pathname) {
     return adminCancelMarketListing(env, await authenticatedUser(request, env), marketListingId);
   }
 
+  const marketDealId = adminEntityIdFrom(pathname,'market-deals','cancel');
+  if(request.method==='POST' && marketDealId) {
+    return adminCancelMarketDeal(env,await authenticatedUser(request,env),marketDealId);
+  }
+
   const marketUserId = adminEntityIdFrom(pathname, 'market-users', 'state');
   if (request.method === 'POST' && marketUserId) {
     return adminSetMarketUserState(request, env, await authenticatedUser(request, env), marketUserId);

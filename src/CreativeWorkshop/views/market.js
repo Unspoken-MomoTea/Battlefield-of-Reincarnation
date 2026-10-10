@@ -695,7 +695,6 @@ export function createMarketView({
     try {
       const local = await marketService.inventory();
       cells.push(['空间币', coin(local.coin)]);
-      cells.push(['背包资产', String(local.assets.length)]);
       cells.push(['区域', local.inHub ? '主神空间' : '任务世界']);
     } catch {
       cells.push(['当前存档', '未读取']);

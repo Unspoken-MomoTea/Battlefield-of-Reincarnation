@@ -1,5 +1,6 @@
 import { MARKET_KIND_LABELS } from '../services/market-service.js';
 import { createMarketBrowseStore } from './market-browse-store.js';
+import { createMarketDealView } from './market-deal-view.js';
 import { marketOrderPreviewExamples } from './market-order-examples.js';
 import {
   marketAssetDetailEntries,
@@ -76,6 +77,9 @@ export function createMarketView({
   let selectedSellIndex = -1;
   const expandedSellKinds = new Set(['equipment']);
   const MAX_ACTIVE_LISTINGS = 10;
+  const dealView = createMarketDealView({
+    nodes,element,button,empty,notifyError,confirmDialog,marketService,getAuth,
+  });
 
   const currentUserId = () => Number(getAuth()?.user?.id || 0);
 
@@ -362,7 +366,7 @@ export function createMarketView({
       void browseStore.ensureSnapshot().catch(() => {});
     }
     if (mode === 'sell') await renderSellMode();
-    if (mode === 'orders') await renderOrderMode();
+    if (mode === 'orders') await dealView.render();
     if (mode === 'mine') await renderMineMode();
     await refreshSummary();
   }
@@ -1753,38 +1757,10 @@ export function createMarketView({
       }
       content.append(recovery);
     } else if (currentMineView === 'orders') {
-      const activeOrders = (state.buy_orders || []).filter(value => value.status === 'active');
-      const orderSection = section('我的求购', String(activeOrders.length));
-      if (!activeOrders.length) orderSection.append(element('div', 'rw-ah-muted-line', '当前没有进行中的求购单。'));
-      for (const order of activeOrders) {
-        orderSection.append(transactionRow(
-          order.asset_name + ' · 剩余 ' + order.remaining_quantity,
-          coin(order.unit_price) + ' / 件 · 托管余额 ' + coin(order.escrow_balance) + ' · ' + until(order.expires_at),
-          [button('取消求购', 'danger', async () => {
-            await marketService.cancelBuyOrder(order.id);
-            invalidateTradingViews();
-            await renderMineMode();
-            await refreshSummary();
-          })],
-        ));
-      }
-      content.append(orderSection);
-
-      const activeSwaps = (state.swaps || []).filter(value => value.status === 'active' && Number(value.owner?.id || 0) === currentUserId());
-      const swapSection = section('我的交换', String(activeSwaps.length));
-      if (!activeSwaps.length) swapSection.append(element('div', 'rw-ah-muted-line', '当前没有进行中的交换单。'));
-      for (const swap of activeSwaps) {
-        swapSection.append(transactionRow(
-          (swap.offered?.name || '资产') + ' ⇄ ' + (swap.wanted?.name || '资产'),
-          until(swap.expires_at) + '后到期',
-          [button('取消交换', 'danger', async () => {
-            await marketService.cancelSwap(swap.id);
-            invalidateTradingViews();
-            await renderMineMode();
-          })],
-        ));
-      }
-      content.append(swapSection);
+      const block=section('自由交易订单');
+      block.append(element('p','rw-ah-order-help',
+        '统一订单已移至顶部「订单 → 我的订单」，可在那里查看收到的报价、接受交易、撤回报价及领取资产。'));
+      content.append(block);
     }
 
     nodes.marketMineContent.replaceChildren(content);
@@ -1818,45 +1794,7 @@ export function createMarketView({
     invalidateMineState();
     void renderMineMode({ force: true }).catch(notifyError);
   });
-  nodes.marketOrderExamples?.addEventListener('click', () => {
-    if (!showExamples) return;
-    examplesMode = !examplesMode;
-    orderDraft = null;
-    selectedOrderId = '';
-    void renderOrderMode().catch(notifyError);
-  });
-  nodes.marketOrderRefresh?.addEventListener('click', () => {
-    invalidateOrderState(currentOrderView);
-    void renderOrderMode({ force: true }).catch(notifyError);
-  });
-
-  nodes.marketOrderCreate?.addEventListener('click', () => {
-    examplesMode = false;
-    currentOrderView = 'buy';
-    orderDraft = {};
-    for (const tab of nodes.marketOrderViews || []) {
-      tab.classList.toggle('is-active', tab.dataset.marketOrderView === 'buy');
-    }
-    void renderCreateBuyOrder().catch(notifyError);
-  });
-  nodes.marketSwapCreate?.addEventListener('click', () => {
-    examplesMode = false;
-    currentOrderView = 'swap';
-    orderDraft = { swap: true };
-    for (const tab of nodes.marketOrderViews || []) {
-      tab.classList.toggle('is-active', tab.dataset.marketOrderView === 'swap');
-    }
-    void renderCreateSwap().catch(notifyError);
-  });
-
-  for (const tab of nodes.marketOrderViews || []) {
-    tab.addEventListener('click', () => {
-      currentOrderView = tab.dataset.marketOrderView || 'buy';
-      orderDraft = null;
-      selectedOrderId = '';
-      void renderOrderMode().catch(notifyError);
-    });
-  }
+  dealView.bind();
   for (const tab of nodes.marketMineViews || []) {
     tab.addEventListener('click', () => {
       currentMineView = tab.dataset.marketMineView || 'active';

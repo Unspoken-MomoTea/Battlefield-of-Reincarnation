@@ -72,7 +72,7 @@ export async function listAdminMarket(request, env, user) {
   if (view === 'orders') {
     const clauses = [];
     const args = [];
-    if (status) { clauses.push('o.status = ?'); args.push(status); }
+    if (status && status !== 'all') { clauses.push('o.status = ?'); args.push(status); }
     if (query) {
       clauses.push('(o.asset_name LIKE ? OR u.display_name LIKE ?)');
       args.push('%' + query + '%', '%' + query + '%');
@@ -105,7 +105,7 @@ export async function listAdminMarket(request, env, user) {
   if (view === 'swaps') {
     const clauses = [];
     const args = [];
-    if (status) { clauses.push('s.status = ?'); args.push(status); }
+    if (status && status !== 'all') { clauses.push('s.status = ?'); args.push(status); }
     if (query) {
       clauses.push('(s.offered_name LIKE ? OR s.wanted_name LIKE ? OR u.display_name LIKE ?)');
       args.push('%' + query + '%', '%' + query + '%', '%' + query + '%');

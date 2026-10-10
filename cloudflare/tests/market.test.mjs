@@ -1496,6 +1496,23 @@ test('every save independently gets ten slots, even when another save holds ten 
   assert.equal((await jsonRequest(testEnv, '/api/market/me', { headers: second })).body.active_listing_count, 10);
 });
 
+
+test('legacy 30-unit voucher stock is reduced to ten without granting extra same-day units', async () => {
+  const testEnv = env();
+  const before = await jsonRequest(testEnv, '/api/market/listings?kind=item');
+  assert.equal(before.response.status, 200);
+  const db = testEnv.DB.db;
+  db.prepare("UPDATE market_listings SET total_quantity = 30, remaining_quantity = 22, status = 'active' WHERE id = 'system:credential:F'").run();
+  const reloaded = await jsonRequest({ ...testEnv, DB: new Proxy(testEnv.DB, {}) }, '/api/market/listings?kind=item');
+  assert.equal(reloaded.response.status, 200);
+  const fVoucher = reloaded.body.items.find(x => x.id === 'system:credential:F');
+  assert.ok(fVoucher);
+  assert.equal(fVoucher.remaining_quantity, 2, 'eight sold under the old pool leave only two under the new cap');
+  const record = db.prepare("SELECT total_quantity, remaining_quantity FROM market_listings WHERE id = 'system:credential:F'").get();
+  assert.equal(record.total_quantity, 10);
+  assert.equal(record.remaining_quantity, 2);
+});
+
 test('one-time staging stock reset hides all old auctions but preserves workshop users and unsettled claims', async () => {
   const testEnv = env();
   const seller = createUser(testEnv, 'reset-seller', 'Reset Seller');

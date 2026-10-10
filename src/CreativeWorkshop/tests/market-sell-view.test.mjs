@@ -306,3 +306,48 @@ test('header refresh invalidates the visible commodity cache and reloads a chang
   const row=nodes.marketList.querySelectorAll('.rw-ah-result-row')[0];
   assert.equal(row.children[0].children[0].children[0].textContent,'新商品');
 });
+
+test('rapid category switching never lets a slower previous response blank the new selection', async () => {
+  const nodes={
+    marketModes:[], marketPanels:[],
+    marketCategories:['','equipment','item'].map(kind=>{
+      const node=new Node('button');node.dataset.marketKind=kind;return node;
+    }),
+    marketList:new Node(),marketCount:new Node(),marketSummary:new Node(),marketInspector:new Node(),
+  };
+  let resolveEquipment;
+  let equipmentStarted=false;
+  const product=(kind,name)=>({key:'catalog:'+kind+':one',kind,name,
+    quality:'F',lowest_price:30,total_stock:1,listing_count:1,seller_count:1,
+    asset:{kind,name,data:{品质:'F'}}});
+  const service={
+    async catalog({kind}){
+      if(kind==='equipment') {
+        equipmentStarted=true;
+        return new Promise(resolve=>{resolveEquipment=resolve;});
+      }
+      return {items:[product(kind==='item'?'item':'item',kind==='item'?'立即返回的道具':'全部商品')],
+        counts:{equipment:1,item:1},facets:{qualities:[],subtypes:[]},next_offset:null};
+    },
+    async catalogDetail(){return {};},
+    async inventory(){return {inHub:true,canTrade:true,coin:0};},
+  };
+  const view=createMarketView({nodes,element,button,
+    empty:(target,message)=>target.replaceChildren(new Node('span','',message)),
+    notifyError:error=>{throw error;},confirmDialog:async()=>false,
+    host:{},marketService:service,getAuth:()=>({user:{id:1}})});
+  await view.refresh();
+  nodes.marketCategories[1].click();
+  assert.equal(equipmentStarted,true);
+  nodes.marketCategories[2].click();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(nodes.marketList.querySelectorAll('.rw-ah-result-row').length,1);
+  assert.equal(nodes.marketList.querySelectorAll('.rw-ah-result-row')[0]
+    .children[0].children[0].children[0].textContent,'立即返回的道具');
+  resolveEquipment({items:[product('equipment','迟到的装备')],
+    counts:{equipment:1,item:1},facets:{qualities:[],subtypes:[]},next_offset:null});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(nodes.marketList.querySelectorAll('.rw-ah-result-row').length,1);
+  assert.equal(nodes.marketList.querySelectorAll('.rw-ah-result-row')[0]
+    .children[0].children[0].children[0].textContent,'立即返回的道具');
+});

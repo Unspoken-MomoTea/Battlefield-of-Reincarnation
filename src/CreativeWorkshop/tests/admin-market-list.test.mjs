@@ -73,3 +73,24 @@ test('moderator market defaults to active status and responsive list CSS, not ti
   assert.match(WORKSHOP_CSS,/\.rw-admin-market-row\{display:grid/u);
   assert.match(WORKSHOP_CSS,/@media\(max-width:760px\)[\s\S]*?\.rw-admin-market-header\{display:none\}/u);
 });
+
+test('moderator market only fetches next 50 rows when Next is clicked',async()=>{
+  const nodes={adminMarketView:{value:'listings'},adminMarketSearch:{value:''},
+    adminMarketStatus:{value:'active'},adminMarketRisk:{checked:false},adminMarketList:new Node()};
+  const requests=[];
+  const item={id:'p:one',asset:{kind:'item',name:'测试物品'},status:'active',unit_price:10,
+    remaining_quantity:1,created_at:1,expires_at:0,seller:{id:2,display_name:'卖家'},risk:{}};
+  const view=createAdminMarketView({nodes,element,button,
+    empty:(target,text)=>target.replaceChildren(new Node('p','',text)),
+    workshopApi:{async listAdminMarket(args){requests.push(args);return{
+      items:[item],next_offset:args.offset===0?50:null,
+    };}},host:{},confirmDialog:async()=>false});
+  await view.refresh();
+  assert.equal(requests.length,1);
+  assert.equal(requests[0].offset,0);
+  const next=nodes.adminMarketList.children.at(-1).children.find(x=>x.textContent==='下一页 →');
+  assert.ok(next);
+  await next.handlers.click();
+  assert.equal(requests.length,2);
+  assert.equal(requests[1].offset,50);
+});

@@ -1643,4 +1643,6 @@ export const WORKSHOP_CSS = `
     .rw-admin-market-row>.rw-admin-market-cell:nth-child(5){grid-column:1/-1}
     .rw-admin-market-actions{grid-column:1/-1;border-top:1px solid var(--rw-line);padding-top:8px}
   }
+  .rw-admin-market-pager{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px;padding:12px 8px;border-top:1px solid var(--rw-line)}
+  .rw-admin-market-page{font-size:12px;color:#b8c1cb}
 `;

@@ -254,3 +254,35 @@ test('closed deals returned by stale clients are not rendered as active orders',
   assert.doesNotMatch(allText(nodes.marketOrdersList),/已撤销的测试订单|bid:old/u);
   assert.match(allText(nodes.marketOrdersList),/领取至当前存档/u,'refund pickup remains available');
 });
+
+test('public orders load the next 50-item page only on explicit navigation',async()=>{
+  const nodes={
+    marketOrderViews:[new Node('button'),new Node('button')],
+    marketOrderCreate:new Node('button'),marketSwapCreate:new Node('button'),
+    marketOrderRefresh:new Node('button'),marketOrderExamples:new Node('button'),
+    marketOrdersList:new Node(),marketOrdersEditor:new Node(),
+  };
+  nodes.marketOrderViews[0].dataset.marketOrderView='all';
+  nodes.marketOrderViews[1].dataset.marketOrderView='mine';
+  const calls=[];
+  const makeDeal=id=>({id,title:'订单 '+id,wanted:'物品',status:'active',
+    offer:{coins:1,assets:[]},bid_count:0,owner:{id:10,display_name:'卖家'}});
+  const service={
+    async listDeals(query,offset,limit){calls.push({query,offset,limit});return{
+      items:[makeDeal(offset?'page:two':'page:one')],next_offset:offset?null:50,
+    };},
+    async getDeal(id){return {deal:makeDeal(id),bids:[],owner:false};},
+    async myDeals(){return {deals:[],my_bids:[],pending_deal_transfers:[]};},
+  };
+  const view=createMarketDealView({nodes,element,button,
+    empty:(target,message)=>target.replaceChildren(new Node('p','',message)),
+    notifyError:error=>{throw error;},confirmDialog:async()=>false,
+    marketService:service,getAuth:()=>({user:{id:2}})});
+  await view.render();
+  assert.deepEqual(calls,[{query:'',offset:0,limit:50}]);
+  const next=walk(nodes.marketOrdersList,node=>node.textContent==='下一页 →')[0];
+  assert.ok(next);
+  await next.click();
+  assert.deepEqual(calls,[{query:'',offset:0,limit:50},{query:'',offset:50,limit:50}]);
+  assert.match(allText(nodes.marketOrdersList),/第 2 页/u);
+});

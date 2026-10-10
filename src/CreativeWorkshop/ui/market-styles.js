@@ -422,4 +422,6 @@ export const MARKET_CSS = `
 .rw-ah-deal-row-title,.rw-ah-deal-row-wanted,.rw-ah-deal-row-terms{min-width:0;max-width:100%;overflow-wrap:anywhere}
 .rw-ah-deal-row-wanted{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .rw-ah-deal-row-terms{color:#d4b777!important}
+.rw-ah-deal-pager{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px;padding:12px 8px;border-top:1px solid var(--rw-line)}
+.rw-ah-deal-page{font-size:12px;color:var(--rw-muted,#a9b0bb)}
 `;

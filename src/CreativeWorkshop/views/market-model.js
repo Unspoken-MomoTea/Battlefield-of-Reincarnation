@@ -118,12 +118,15 @@ function compactNamedAssets(bucket, { quantity = false } = {}) {
   if (!bucket || typeof bucket !== 'object' || Array.isArray(bucket)) return [];
   return Object.entries(bucket)
     .filter(([, value]) => value && typeof value === 'object' && !Array.isArray(value))
-    .map(([name, value]) => ({
-      name: String(name || '').trim(),
-      rank: String(value.品质 || value.层级 || '').trim(),
-      rawAttributes: compactRawAttributes(value.原始属性),
-      quantity: quantity ? Math.max(1, Math.floor(Number(value.数量) || 1)) : 1,
-    }))
+    .map(([name, value]) => {
+      const rawAttributes = compactRawAttributes(value.原始属性);
+      return {
+        name: String(name || '').trim(),
+        rank: String(value.品质 || value.层级 || '').trim(),
+        ...(rawAttributes.length ? { rawAttributes } : {}),
+        quantity: quantity ? Math.max(1, Math.floor(Number(value.数量) || 1)) : 1,
+      };
+    })
     .filter(item => item.name);
 }
 

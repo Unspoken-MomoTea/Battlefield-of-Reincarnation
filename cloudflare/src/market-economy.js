@@ -50,7 +50,6 @@ export const MARKET_BUYBACK_BPS = Object.freeze({
 
 export const MARKET_AUCTION_DURATIONS = Object.freeze([24, 48, 72]);
 export const MARKET_LISTING_DAILY_BPS = 1_000;
-export const MARKET_SUCCESS_FEE_BPS = 300;
 export const MARKET_EXPIRED_GRACE_HOURS = 72;
 export const MARKET_CREDENTIAL_DAILY_STOCK = 30;
 
@@ -121,11 +120,12 @@ export function marketAuctionQuote(asset, quantity = 1, durationHours = 24) {
 
 export function marketSaleSettlement(totalPrice) {
   const gross = Math.max(0, integer(totalPrice, 0));
-  const marketFee = Math.max(0, Math.ceil(gross * MARKET_SUCCESS_FEE_BPS / 10_000));
+  // Auction tax was already charged when the listing was created.
+  // Do not charge sellers a second commission when a buyer completes the trade.
   return {
     gross,
-    market_fee: marketFee,
-    seller_proceeds: Math.max(0, gross - marketFee),
+    market_fee: 0,
+    seller_proceeds: gross,
   };
 }
 

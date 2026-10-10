@@ -1202,12 +1202,21 @@ export async function getMarketMe(env, user) {
   );
   const orderState = await getMarketOrderState(env, user);
   const activeCount = await first(env,
-    `SELECT COUNT(*) AS count FROM market_listings
+    `SELECT COUNT(*) AS count,
+            SUM(CASE WHEN save_id = ? THEN 1 ELSE 0 END) AS save_count
+     FROM market_listings
      WHERE seller_user_id = ? AND is_system = 0 AND status = 'active'
-       AND remaining_quantity > 0 AND expires_at > ?`, [user.id, nowMs()]);
+       AND remaining_quantity > 0 AND expires_at > ?`,
+    [user.market_save_id, user.id, nowMs()]);
+  // The 10-listing cap is shared across a Discord account, while the
+  // inventory and recoverable returns are scoped to the originating save.
+  const activeGlobal = integer(activeCount?.count);
+  const activeInSave = integer(activeCount?.save_count);
 
   return json({
-    active_listing_count: integer(activeCount?.count),
+    active_listing_count: activeGlobal,
+    active_listing_save_count: activeInSave,
+    active_listing_other_save_count: Math.max(0, activeGlobal - activeInSave),
     active_listing_limit: MAX_ACTIVE_LISTINGS,
     wallet: {
       balance: integer(wallet?.balance, 0),

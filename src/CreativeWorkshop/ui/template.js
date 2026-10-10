@@ -210,6 +210,7 @@ export function workshopTemplate(version) {
             <div class="rw-ah-orders-actions">
               <button class="rw-button primary" data-action="market-order-create" type="button">创建求购</button>
               <button class="rw-button" data-action="market-swap-create" type="button">创建交换</button>
+              <button class="rw-button" data-action="market-order-examples" type="button" hidden>查看示例</button>
               <button class="rw-button" data-action="market-order-refresh" type="button">刷新</button>
             </div>
           </div>

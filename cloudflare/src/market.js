@@ -790,7 +790,7 @@ export async function createMarketListing(request, env, user) {
     MAX_ACTIVE_LISTINGS,
   ).run();
   if (Number(inserted.meta?.changes || 0) !== 1) {
-    throw new HttpError(409, 'market_listing_limit', '最多只能同时上架 10 个商品，请先撤回或等待挂单售完');
+    throw new HttpError(409, 'market_listing_limit', '当前存档最多同时上架 10 个商品，请先撤回或等待挂单售完');
   }
 
   await refreshMarketCatalogKey(env, meta.catalog_key);

@@ -587,6 +587,132 @@ export function createMarketService({ host, api }) {
     return api.listMarketSwaps(filters);
   }
 
+  function validateSelections(input) {
+    if (!Array.isArray(input) || input.length > 6) throw new Error('一次最多托管六种资产');
+    const seen = new Set();
+    return input.map(item => {
+      const kind = String(item?.kind || '');
+      const key = String(item?.key || '');
+      const label = kind + ':' + key;
+      if (!key || seen.has(label)) throw new Error('同一种资产不可重复选择');
+      seen.add(label);
+      const quantity = kind === 'item' ? Math.floor(Number(item.quantity) || 1) : 1;
+      if (quantity < 1 || quantity > 9999) throw new Error('资产数量无效');
+      return { kind, key, quantity };
+    });
+  }
+
+  function escrowCoinValue(coins) {
+    const value = Number(coins ?? 0);
+    if (!Number.isSafeInteger(value) || value < 0 || value > 1_000_000_000) {
+      throw new Error('托管空间币必须是非负整数');
+    }
+    return value;
+  }
+
+  async function placeDealEscrow(selections, coins, createRemote, lookupRemote, receiptId, receiptLabel) {
+    const snapshot = readLatest(host);
+    assertHub(snapshot.data.stat_data);
+    const selected = validateSelections(selections);
+    const amount = escrowCoinValue(coins);
+    if (!selected.length && !amount) throw new Error('必须提供至少一种资产或空间币');
+    const savedForms = selected.map(item => formActivationSnapshot(snapshot.data.stat_data, item));
+    const assets = [];
+    await mutateLatest(host, next => {
+      assertHub(next.stat_data);
+      const current = Number(next.stat_data.角色.空间币 || 0);
+      if (current < amount) throw new Error('空间币余额不足');
+      for (const selection of selected) {
+        const located = findAsset(next.stat_data, selection.kind, selection.key);
+        const name = assetName(selection.key, located.value);
+        const removed = removeAsset(next.stat_data, selection);
+        assets.push(assetPayload({
+          kind: selection.kind, name, quantity: removed.quantity, data: removed.data,
+        }));
+      }
+      next.stat_data.角色.空间币 = current - amount;
+    }, snapshot.saveId);
+    let result;
+    try {
+      assertCurrentSave(host, snapshot.saveId);
+      result = await createRemote({coins:amount, assets});
+    } catch(error) {
+      try { result = await lookupRemote(); } catch {}
+      if (!result) {
+        await mutateLatest(host, next => {
+          assertHub(next.stat_data);
+          for (let i=0;i<assets.length;i++) {
+            addAsset(next.stat_data,assets[i]);
+            restoreFormActivation(next.stat_data,savedForms[i]);
+          }
+          next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0) + amount;
+        },snapshot.saveId);
+        throw error;
+      }
+    }
+    await broadcast(snapshot.saveId,receiptId,
+      receiptLabel + '｜托管 ' + assets.map(a => receiptAsset(a)).join('、')
+      + (amount ? ' +' + coin(amount) : ''));
+    return result;
+  }
+
+  async function listDeals(query='') { return api.listDeals(query); }
+  async function myDeals() { return api.myDeals(); }
+  async function getDeal(id) { return api.getDeal(id); }
+
+  async function createDeal({ title, wanted, selections=[], coins=0, durationHours=24 }) {
+    const dealId=randomId(host,'deal');
+    return placeDealEscrow(selections, coins,
+      offer=>api.createDeal({id:dealId,title,wanted,offer,duration_hours:durationHours}),
+      async()=>{const found=await api.getDeal(dealId);return found?.owner?found:null;},
+      'deal-create:'+dealId,'[空间集市发布订单][角色] '+title);
+  }
+  async function submitDealBid(dealId,{ selections=[],coins=0,note='' }) {
+    const bidId=randomId(host,'dealbid');
+    return placeDealEscrow(selections,coins,
+      offer=>api.submitDealBid(dealId,{id:bidId,offer,note}),
+      async()=>{const found=await api.getDeal(dealId);return found?.bids?.find(b=>b.id===bidId)?found:null;},
+      'deal-bid:'+bidId,'[空间集市提交报价][角色] 对订单 '+dealId+' 提供');
+  }
+  async function decideDealBid(dealId,bidId,accepted) {
+    const snapshot=readLatest(host);
+    assertHub(snapshot.data.stat_data);
+    return api.decideDealBid(dealId,bidId,Boolean(accepted));
+  }
+  async function cancelDeal(dealId) {
+    const snapshot=readLatest(host);
+    assertHub(snapshot.data.stat_data);
+    return api.cancelDeal(dealId);
+  }
+  async function withdrawDealBid(bidId) {
+    const snapshot=readLatest(host);
+    assertHub(snapshot.data.stat_data);
+    return api.withdrawDealBid(bidId);
+  }
+  async function receiveDealTransfer(transfer) {
+    if (!transfer?.id) throw new Error('订单领取凭证无效');
+    const saveId=currentMarketSaveId(host);
+    if (transfer.save_id && transfer.save_id !== saveId)
+      throw new Error('这笔订单属于另一个存档，请切换回原存档领取');
+    await mutateLatest(host,next=>{
+      assertHub(next.stat_data);
+      const received=ledgerBucket(next,'dealTransfers');
+      if (received[transfer.id]) return;
+      const assets=transfer.offer?.assets || [];
+      for(const asset of assets) if(collisionFor(next.stat_data,asset))
+        throw new Error('待领取资产与现有资产冲突，请整理背包后重试');
+      for(const asset of assets) addAsset(next.stat_data,asset);
+      const amount=Number(transfer.offer?.coins || 0);
+      next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0)+amount;
+      received[transfer.id]=Date.now();
+      appendMarketBroadcast(next,'deal-receive:'+transfer.id,
+        '[空间集市订单领取][角色] '+assets.map(a=>receiptAsset(a)).join('、')
+        +(amount?'｜入账 '+coin(amount):'｜资产已领取'));
+    },saveId);
+    await api.confirmDealTransfer(transfer.id);
+    return transfer;
+  }
+
   async function quoteAuction(asset, quantity = 1, durationHours = 24) {
     return (await api.quoteMarketAction({
       action: 'auction',
@@ -1236,6 +1362,8 @@ export function createMarketService({ host, api }) {
   }
 
   return {
+    listDeals, myDeals, getDeal, createDeal, submitDealBid, decideDealBid,
+    cancelDeal, withdrawDealBid, receiveDealTransfer,
     inventory,
     list,
     listAll,

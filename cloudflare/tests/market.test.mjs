@@ -1527,7 +1527,10 @@ test('one-time staging stock reset hides all old auctions but preserves workshop
   assert.equal(db.prepare('SELECT COUNT(*) AS total FROM market_catalog WHERE total_stock > 0').get().total, 0);
   assert.equal(db.prepare('SELECT COUNT(*) AS total FROM users').get().total, userCountBefore);
   assert.equal(db.prepare("SELECT COUNT(*) AS total FROM market_trades WHERE id = 'reset-old-pending-trade'").get().total, 1);
-  assert.equal((await jsonRequest(testEnv, '/api/market/me', {headers:sellerHeaders})).body.wallet.balance, sellerBalanceBefore);
+  const afterSeller = (await jsonRequest(testEnv, '/api/market/me', {headers:sellerHeaders})).body;
+  assert.equal(afterSeller.wallet.balance, sellerBalanceBefore);
+  assert.equal(afterSeller.listings.some(item => item.id === 'reset-old-listing'), false,
+    'archived testing listings must disappear from my auctions too');
   // A freshly deployed Worker has a new D1 binding; only its six legitimate
   // daily credential listings may reappear, and each starts at ten.
   const fresh = { ...testEnv, DB: new Proxy(testEnv.DB, {}) };

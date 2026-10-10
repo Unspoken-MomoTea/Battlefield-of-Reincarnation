@@ -1,4 +1,5 @@
 import { marketAssetDetailEntries } from './market-model.js';
+import { MARKET_KIND_LABELS } from '../services/market-service.js';
 
 // The only interactive entry point for unified negotiated orders. No automatic
 // name/quality matching: a bid is merely an escrowed offer until owner accepts.
@@ -10,6 +11,10 @@ export function createMarketDealView({nodes,element,button,empty,notifyError,con
   const coin=value=>Math.max(0,Number(value)||0).toLocaleString('zh-CN');
   const act=fn=>async()=>{try{await fn()}catch(error){notifyError(error)}};
   const userId=()=>Number(getAuth()?.user?.id||0);
+  const assetKindLabel=asset=>
+    String(asset?.name||'').includes('权限凭证') && asset?.kind==='item'
+      ? '凭证'
+      : (MARKET_KIND_LABELS[asset?.kind] || '资产');
   const group=(title,description='')=>{
     const el=element('label','rw-ah-order-field');
     el.append(element('span','',title));
@@ -17,7 +22,7 @@ export function createMarketDealView({nodes,element,button,empty,notifyError,con
     return el;
   };
   const info=(assets,coins)=>{
-    const names=(assets||[]).map(a=>(a.name||'资产')+' ×'+(a.quantity||1));
+    const names=(assets||[]).map(a=>assetKindLabel(a)+' · '+(a.name||'资产')+' ×'+(a.quantity||1));
     if(Number(coins)>0)names.push(coin(coins)+' 空间币');
     return names.join(' + ')||'未提供';
   };
@@ -46,7 +51,7 @@ export function createMarketDealView({nodes,element,button,empty,notifyError,con
       const picker=element('select','rw-input rw-ah-deal-control');
       picker.append(element('option','','请选择要托管的资产'));
       for(const [index,asset] of inventory.assets.entries()){
-        const option=element('option','',asset.name+' · '+(asset.quality||'无品质')+' · 剩余 '+asset.quantity);
+        const option=element('option','',assetKindLabel(asset)+' · '+asset.name+' · '+(asset.quality||'无品质')+' · 剩余 '+asset.quantity);
         option.value=String(index);picker.append(option);
       }
       picker.value='';
@@ -145,7 +150,10 @@ export function createMarketDealView({nodes,element,button,empty,notifyError,con
       const summary=element('summary','rw-ah-deal-asset-summary');
       const titleEl=element('strong','rw-ah-deal-asset-name',asset.name||'资产');
       const meta=element('span','rw-ah-deal-asset-meta');
-      meta.append(element('span','', '×'+(asset.quantity||1)));
+      meta.append(
+        element('span','rw-ah-deal-kind',assetKindLabel(asset)),
+        element('span','', '×'+(asset.quantity||1)),
+      );
       const quality=asset.data?.品质 || asset.data?.层级 || asset.quality;
       if(quality)meta.append(gradeText(quality));
       summary.append(titleEl,meta);
@@ -272,7 +280,9 @@ export function createMarketDealView({nodes,element,button,empty,notifyError,con
   async function render(force=false){
     const mine=mode==='mine';
     const state=mine?await marketService.myDeals():await marketService.listDeals();
-    const deals=mine?state.deals||[]:state.items||[];
+    const deals=mine
+      ? (state.deals||[]).filter(deal=>deal.status==='active' && Number(deal.expires_at||0)>Date.now())
+      : state.items||[];
     for(const tab of nodes.marketOrderViews||[])
       tab.classList.toggle('is-active',tab.dataset.marketOrderView===mode);
     if(nodes.marketOrderCreate)nodes.marketOrderCreate.hidden=false;
@@ -311,6 +321,7 @@ export function createMarketDealView({nodes,element,button,empty,notifyError,con
     if(mine){
       list.append(section('我参与的报价'));
       for(const bid of state.my_bids||[]){
+        if(bid.status!=='pending')continue;
         const row=button('','rw-ah-order-row',act(async()=>display(bid.deal_id)));
         row.append(
           element('strong','', '已参与报价'),

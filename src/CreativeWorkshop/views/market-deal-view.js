@@ -1,3 +1,5 @@
+import { marketAssetDetailEntries } from './market-model.js';
+
 // The only interactive entry point for unified negotiated orders. No automatic
 // name/quality matching: a bid is merely an escrowed offer until owner accepts.
 export function createMarketDealView({nodes,element,button,empty,notifyError,confirmDialog,marketService,getAuth}) {
@@ -9,7 +11,7 @@ export function createMarketDealView({nodes,element,button,empty,notifyError,con
   const act=fn=>async()=>{try{await fn()}catch(error){notifyError(error)}};
   const userId=()=>Number(getAuth()?.user?.id||0);
   const group=(title,description='')=>{
-    const el=element('div','rw-ah-order-field');
+    const el=element('label','rw-ah-order-field');
     el.append(element('span','',title));
     if(description)el.append(element('small','rw-ah-order-help',description));
     return el;
@@ -20,19 +22,29 @@ export function createMarketDealView({nodes,element,button,empty,notifyError,con
     return names.join(' + ')||'未提供';
   };
   const input=(type='text',value='',placeholder='')=>{
-    const el=element('input','rw-input');
+    const el=element('input','rw-input rw-ah-deal-control');
     el.type=type;el.value=String(value);el.placeholder=placeholder;
     if(type==='number'){el.min='0';el.step='1';}
     return el;
   };
   const section=(title)=>element('div','rw-ah-order-detail-section',title);
+  const descriptionInput=(placeholder='')=>{
+    const el=element('textarea','rw-input rw-ah-deal-control rw-ah-deal-description');
+    el.value='';el.placeholder=placeholder;el.maxLength=300;el.rows=3;
+    return el;
+  };
+  const statusLabel=status=>({
+    active:'进行中',completed:'已成交',cancelled:'已撤销',
+    expired:'已到期',pending:'待审核',accepted:'已接受',
+    rejected:'未选中',withdrawn:'已撤回',
+  })[status]||'已结束';
   const makeAssetPicker=(inventory)=>{
-    const block=element('div','rw-ah-deal-asset-picks');
+    const block=element('section','rw-ah-deal-asset-picks');
     const rows=element('div','rw-ah-deal-asset-rows');
     const picks=[];
     const createRow=()=>{
-      const picker=element('select','rw-input');
-      picker.append(element('option','','不选择资产'));
+      const picker=element('select','rw-input rw-ah-deal-control');
+      picker.append(element('option','','请选择要托管的资产'));
       for(const [index,asset] of inventory.assets.entries()){
         const option=element('option','',asset.name+' · '+(asset.quality||'无品质')+' · 剩余 '+asset.quantity);
         option.value=String(index);picker.append(option);
@@ -41,14 +53,32 @@ export function createMarketDealView({nodes,element,button,empty,notifyError,con
       const qty=input('number','1');
       qty.min='1';qty.max='9999';
       const row=element('div','rw-ah-deal-asset-row');
-      row.append(picker,qty,button('移除','',()=>{const pos=picks.indexOf(item);if(pos>=0)picks.splice(pos,1);row.remove()}));
+      const pickField=group('选择资产');
+      pickField.append(picker);
+      const quantityField=group('数量');
+      quantityField.append(qty);
+      const remove=button('移除','rw-ah-deal-remove',()=>{const pos=picks.indexOf(item);if(pos>=0)picks.splice(pos,1);row.remove()});
+      const preview=element('div','rw-ah-deal-picker-preview');
+      picker.addEventListener('change',()=>{
+        const asset=inventory.assets[Number(picker.value)];
+        preview.replaceChildren(...(picker.value!=='' && asset
+          ? [offerDetails('资产预览',{assets:[asset],coins:0})]
+          : []));
+        qty.max=asset?.quantity||1;
+        if(asset?.kind!=='item'){qty.value='1';qty.disabled=true;}
+        else qty.disabled=false;
+      });
+      row.append(pickField,quantityField,remove,preview);
       const item={picker,qty};
       picks.push(item);rows.append(row);
     };
     block.append(
-      element('span','rw-ah-order-help','选择可交易资产（可多选，权限凭证也在资产列表中）'),
-      rows,button('添加一种资产','',createRow),
+      element('strong','rw-ah-deal-field-heading','托管资产'),
+      element('p','rw-ah-order-help','可以组合多种资产与空间币；权限凭证也在资产选择列表中。'),
+      rows,
     );
+    if(inventory.assets.length) block.append(button('+ 添加一种资产','rw-ah-deal-add',createRow));
+    else block.append(element('p','rw-ah-order-help','当前存档暂无可交易资产，可以仅提供空间币。'));
     const extract=()=>{
       const selections=[];
       for(const {picker,qty} of picks){
@@ -64,17 +94,73 @@ export function createMarketDealView({nodes,element,button,empty,notifyError,con
     };
     return {block,extract};
   };
+  const qualityRank = value => {
+    const raw=String(value??'').trim().toUpperCase();
+    return /^(F|E|D|C|B|A|S|SS|SSS)$/u.test(raw) ? raw : '';
+  };
+  const gradeText = value => {
+    const node=element('span','rw-ah-deal-value',String(value));
+    const rank=qualityRank(value);
+    if(rank){
+      node.classList.add('rw-ah-quality-name');
+      node.dataset.quality=rank;
+    }
+    return node;
+  };
+  // marketAssetDetailEntries recursively strips computed/private values,
+  // including 真属性/最终属性, while keeping real 原始属性.
+  const detailValue=(value, key='', depth=0) => {
+    if(value==null)return element('span','rw-ah-deal-value muted','—');
+    if(Array.isArray(value)){
+      const list=element('div','rw-ah-deal-chips');
+      for(const item of value){
+        const chip=element('span','rw-ah-deal-chip');
+        chip.append(detailValue(item,key,depth+1));
+        list.append(chip);
+      }
+      return list;
+    }
+    if(typeof value==='object'){
+      const grid=element('div','rw-ah-deal-attrs'+(depth?' is-nested':''));
+      for(const [name,item] of Object.entries(value)){
+        const row=element('div','rw-ah-deal-attr-row');
+        row.append(element('span','rw-ah-deal-attr-key',name),detailValue(item,name,depth+1));
+        grid.append(row);
+      }
+      return grid;
+    }
+    return (key==='品质' || key==='层级' || key==='原始属性' || depth>0)
+      ? gradeText(value) : element('span','rw-ah-deal-value',String(value));
+  };
   const offerDetails=(title,offer)=>{
-    const wrapper=element('div','rw-ah-deal-offer');
-    wrapper.append(element('strong','',title),element('div','rw-ah-order-facts'));
-    const facts=wrapper.children[1];
-    if(offer?.coins>0) facts.append(element('span','','空间币 '+coin(offer.coins)));
+    const wrapper=element('section','rw-ah-deal-offer');
+    wrapper.append(element('strong','rw-ah-deal-offer-title',title));
+    if(offer?.coins>0){
+      const coinLine=element('div','rw-ah-deal-coin-line');
+      coinLine.append(element('span','','空间币'),element('strong','',coin(offer.coins)));
+      wrapper.append(coinLine);
+    }
     for(const asset of offer?.assets||[]){
       const card=element('details','rw-ah-deal-asset-detail');
-      const summary=element('summary','',(asset.name||'资产')+' ×'+(asset.quantity||1)+' · '+(asset.data?.品质||asset.data?.层级||asset.kind));
-      const attrs=element('pre','','');
-      attrs.textContent=JSON.stringify(asset.data||{},null,2);
-      card.append(summary,attrs);wrapper.append(card);
+      const summary=element('summary','rw-ah-deal-asset-summary');
+      const titleEl=element('strong','rw-ah-deal-asset-name',asset.name||'资产');
+      const meta=element('span','rw-ah-deal-asset-meta');
+      meta.append(element('span','', '×'+(asset.quantity||1)));
+      const quality=asset.data?.品质 || asset.data?.层级 || asset.quality;
+      if(quality)meta.append(gradeText(quality));
+      summary.append(titleEl,meta);
+      const body=element('div','rw-ah-deal-asset-body');
+      const entries=marketAssetDetailEntries(asset)
+        .filter(([key])=>key!=='数量');
+      if(entries.length) {
+        for(const [key,value] of entries){
+          const field=element('div','rw-ah-deal-attr-row');
+          field.append(element('span','rw-ah-deal-attr-key',key),detailValue(value,key));
+          body.append(field);
+        }
+      } else body.append(element('span','rw-ah-order-help','这项资产没有额外资料'));
+      card.append(summary,body);
+      wrapper.append(card);
     }
     return wrapper;
   };
@@ -90,7 +176,7 @@ export function createMarketDealView({nodes,element,button,empty,notifyError,con
     let title,wanted,duration;
     if(!isBid){
       title=input('text','','例如：寻找会治疗的伙伴');
-      wanted=input('text','','自由描述需求、能力、条件，不要求精确名称');
+      wanted=descriptionInput('自由描述需求、能力与条件，无需精确名称');
       duration=element('select','rw-input');
       for(const hour of [24,48,72]){
         const opt=element('option','',hour+'小时');opt.value=String(hour);duration.append(opt);
@@ -105,7 +191,7 @@ export function createMarketDealView({nodes,element,button,empty,notifyError,con
     const coinBox=input('number','0');
     const amount=group('另外提供空间币');amount.append(coinBox);
     editor.append(picks.block,amount);
-    const note=isBid?input('text','','说明你的资产有什么效果，以及为什么符合需求'):null;
+    const note=isBid?descriptionInput('简述这项资产的效果，以及为什么符合订单需求'):null;
     if(note){const field=group('报价说明');field.append(note);editor.append(field);}
     const submit=button(isBid?'托管并提交报价':'托管并发布订单','primary',act(async()=>{
       const selections=picks.extract(),coins=Number(coinBox.value);
@@ -133,10 +219,19 @@ export function createMarketDealView({nodes,element,button,empty,notifyError,con
     selectedDeal=result.deal;
     const deal=result.deal;
     const editor=element('div','rw-ah-order-detail');
-    editor.append(element('h3','',deal.title),
-      element('p','rw-ah-order-help','需求：'+deal.wanted),
+    const heading=element('header','rw-ah-deal-detail-head');
+    heading.append(
+      element('h3','',deal.title),
+      element('span','rw-ah-deal-status',statusLabel(deal.status)),
+    );
+    const wanted=element('section','rw-ah-deal-wanted');
+    wanted.append(section('希望获得'),element('p','rw-ah-order-help',deal.wanted));
+    editor.append(
+      heading,
+      wanted,
       offerDetails('发布者提供',deal.offer),
-      element('p','rw-ah-order-help','状态：'+deal.status+' · 报价 '+deal.bid_count+' 份'));
+      element('p','rw-ah-deal-count','已收到 '+deal.bid_count+' 份待处理报价'),
+    );
     if(deal.status==='active'){
       if(result.owner){
         editor.append(button('取消订单并退还全部托管','danger',act(async()=>{
@@ -150,8 +245,12 @@ export function createMarketDealView({nodes,element,button,empty,notifyError,con
     if(result.owner&&result.bids.length)editor.append(section('收到的报价（接受一份后自动退还其他人）'));
     for(const bid of result.bids||[]){
       const box=element('div','rw-ah-deal-bid');
-      box.append(element('strong','',bid.bidder.display_name+' · '+bid.status),
-        offerDetails('实际提供的资产',bid.offer));
+      const bidder=element('div','rw-ah-deal-bid-head');
+      bidder.append(
+        element('strong','',bid.bidder.display_name),
+        element('span','rw-ah-deal-status',statusLabel(bid.status)),
+      );
+      box.append(bidder,offerDetails('报价资产',bid.offer));
       if(bid.note)box.append(element('p','rw-ah-order-help',bid.note));
       if(result.owner&&deal.status==='active'&&bid.status==='pending'){
         box.append(button('同意此报价','primary',act(async()=>{
@@ -197,19 +296,27 @@ export function createMarketDealView({nodes,element,button,empty,notifyError,con
     }
     if(!deals.length)list.append(element('div','rw-ah-muted-line',mine?'暂无进行中的订单':'暂无公开订单'));
     for(const deal of deals){
-      const row=button(deal.title,'rw-ah-order-row',act(async()=>{
+      const row=button('','rw-ah-order-row',act(async()=>{
         selected=deal.id;compose=false;await display(deal.id);
       }));
-      row.append(element('small','',deal.wanted),
-        element('span','',info(deal.offer.assets,deal.offer.coins)+' · '+deal.bid_count+'份报价'));
+      row.append(
+        element('strong','rw-ah-deal-row-title',deal.title),
+        element('span','rw-ah-deal-row-wanted',deal.wanted),
+        element('small','rw-ah-deal-row-terms',
+          '提供 '+info(deal.offer.assets,deal.offer.coins)+' · '+deal.bid_count+'份报价'),
+      );
       if(deal.id===selected)row.classList.add('is-selected');
       list.append(row);
     }
     if(mine){
       list.append(section('我参与的报价'));
       for(const bid of state.my_bids||[]){
-        const row=button('报价 · '+bid.deal_id,'rw-ah-order-row',act(async()=>display(bid.deal_id)));
-        row.append(element('small','',info(bid.offer.assets,bid.offer.coins)),element('span','',bid.status));
+        const row=button('','rw-ah-order-row',act(async()=>display(bid.deal_id)));
+        row.append(
+          element('strong','', '已参与报价'),
+          element('span','rw-ah-deal-row-wanted',info(bid.offer.assets,bid.offer.coins)),
+          element('small','',statusLabel(bid.status)),
+        );
         list.append(row);
       }
     }

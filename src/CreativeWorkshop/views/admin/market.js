@@ -42,78 +42,82 @@ export function createAdminMarketView({
     return actions;
   };
 
-  const card = item => {
-    const node = element('article', 'rw-card rw-market-admin-card');
+  const statusName = status => ({
+    active: '在售', sold: '已售罄', cancelled: '已取消',
+    filled: '已完成', expired: '已到期', completed: '已成交',
+  })[status] || String(status || '—');
+  const kindName = kind => ({
+    item: '道具', equipment: '装备', skill: '技能',
+    bloodline: '血统', form: '形态', teammate: '角色',
+  })[kind] || String(kind || '资产');
+
+  const cell = (primary, secondary = '', className = '') => {
+    const node = element('div', 'rw-admin-market-cell ' + className);
+    node.append(element('span', 'rw-admin-market-primary', String(primary || '—')));
+    if (secondary) node.append(element('small', 'rw-admin-market-secondary', String(secondary)));
+    return node;
+  };
+
+  const header = () => {
+    const head = element('div', 'rw-admin-market-row rw-admin-market-header');
+    for (const title of ['商品 / 类型', '单价 / 数量', '状态', '卖家 / 发布者', '创建 / 到期', '管理操作']) {
+      head.append(element('span', '', title));
+    }
+    return head;
+  };
+
+  const row = item => {
     const view = nodes.adminMarketView?.value || 'listings';
+    const node = element('div', 'rw-admin-market-row');
+    const actions = element('div', 'rw-admin-market-actions');
 
     if (view === 'orders') {
-      node.append(element('h3', '', '求购 · ' + item.asset_name));
-      const meta = element('div', 'rw-meta');
-      meta.append(
-        element('span', 'rw-pill', item.quality || '不限品质'),
-        element('span', 'rw-pill', coin(item.unit_price) + ' / 件'),
-        element('span', 'rw-pill', '剩余 ' + item.remaining_quantity),
-        element('span', 'rw-pill', item.status),
+      node.append(
+        cell(item.asset_name, kindName(item.asset_kind), 'rw-admin-market-item'),
+        cell(coin(item.unit_price) + ' 空间币', '剩余 ' + item.remaining_quantity),
+        cell(statusName(item.status)),
+        cell(item.buyer?.display_name || '—'),
+        cell('—', '到期 ' + when(item.expires_at)),
       );
-      node.append(meta);
-      node.append(element('div', 'rw-muted', '买家：' + (item.buyer?.display_name || '—') + '\n到期：' + when(item.expires_at)));
-      const actions = element('div', 'rw-row');
       actions.append(...userActions(item.buyer));
-      node.append(actions);
-      return node;
-    }
-
-    if (view === 'swaps') {
-      node.append(element('h3', '', '交换 · ' + (item.offered?.name || '资产') + ' ⇄ ' + (item.wanted?.name || '资产')));
-      const meta = element('div', 'rw-meta');
-      meta.append(
-        element('span', 'rw-pill', item.status),
-        element('span', 'rw-pill', '提供 ×' + (item.offered?.quantity || 1)),
-        element('span', 'rw-pill', '需要 ×' + (item.wanted?.quantity || 1)),
+    } else if (view === 'swaps') {
+      node.append(
+        cell(item.offered?.name || '资产', '交换 → ' + (item.wanted?.name || '资产'), 'rw-admin-market-item'),
+        cell('提供 ×' + (item.offered?.quantity || 1), '需要 ×' + (item.wanted?.quantity || 1)),
+        cell(statusName(item.status)),
+        cell(item.owner?.display_name || '—'),
+        cell('—', '到期 ' + when(item.expires_at)),
       );
-      node.append(meta);
-      node.append(element('div', 'rw-muted', '发布者：' + (item.owner?.display_name || '—') + '\n到期：' + when(item.expires_at)));
-      const actions = element('div', 'rw-row');
       actions.append(...userActions(item.owner));
-      node.append(actions);
-      return node;
+    } else {
+      const flags = [
+        item.risk?.suspicious ? '异常价格' : '',
+        item.seller?.market_suspended ? '已冻结' : '',
+      ].filter(Boolean).join(' · ');
+      node.append(
+        cell(item.asset?.name || '资产', kindName(item.asset?.kind), 'rw-admin-market-item'),
+        cell(coin(item.unit_price) + ' 空间币/件', '剩余 ' + item.remaining_quantity),
+        cell(statusName(item.status), flags),
+        cell(item.seller?.display_name || '—'),
+        cell(when(item.created_at), '到期 ' + when(item.expires_at)),
+      );
+      if (item.status === 'active' && Number(item.remaining_quantity || 0) > 0) {
+        actions.append(button('强制下架', 'danger', async () => {
+          const ok = await confirmDialog({
+            title: '强制下架该挂单？',
+            message: '剩余资产会进入卖家的待返还队列，不会直接销毁。',
+            confirmText: '强制下架',
+            danger: true,
+          });
+          if (!ok) return;
+          await workshopApi.cancelAdminMarketListing(item.id);
+          await refresh();
+        }));
+      }
+      actions.append(...userActions(item.seller, { allowRestore: Boolean(item.seller?.market_suspended) }));
     }
 
-    node.append(element('h3', '', item.asset?.name || '资产'));
-    const meta = element('div', 'rw-meta');
-    meta.append(
-      element('span', 'rw-pill', item.asset?.kind || '资产'),
-      element('span', 'rw-pill', coin(item.unit_price) + ' / 件'),
-      element('span', 'rw-pill', '剩余 ' + item.remaining_quantity),
-      element('span', 'rw-pill', item.status),
-    );
-    if (item.risk?.suspicious) meta.append(element('span', 'rw-pill rw-pill--warning', '异常价格'));
-    if (item.seller?.market_suspended) meta.append(element('span', 'rw-pill rw-pill--warning', '市场已冻结'));
-    node.append(meta);
-    node.append(element(
-      'div',
-      'rw-muted',
-      '卖家：' + (item.seller?.display_name || '—')
-        + '\n创建：' + when(item.created_at)
-        + '\n到期：' + when(item.expires_at)
-        + (item.risk?.reasons?.length ? '\n风险：' + item.risk.reasons.join('；') : ''),
-    ));
-
-    const actions = element('div', 'rw-row');
-    if (item.status === 'active' && Number(item.remaining_quantity || 0) > 0) {
-      actions.append(button('强制下架', 'danger', async () => {
-        const ok = await confirmDialog({
-          title: '强制下架该挂单？',
-          message: '剩余资产会进入卖家的待返还队列，不会直接销毁。',
-          confirmText: '强制下架',
-          danger: true,
-        });
-        if (!ok) return;
-        await workshopApi.cancelAdminMarketListing(item.id);
-        await refresh();
-      }));
-    }
-    actions.append(...userActions(item.seller, { allowRestore: Boolean(item.seller?.market_suspended) }));
+    if (!actions.children.length) actions.append(element('span', 'rw-admin-market-secondary', '—'));
     node.append(actions);
     return node;
   };
@@ -131,7 +135,7 @@ export function createAdminMarketView({
         empty(nodes.adminMarketList, '没有符合条件的市场记录');
         return;
       }
-      nodes.adminMarketList.replaceChildren(...items.map(card));
+      nodes.adminMarketList.replaceChildren(header(), ...items.map(row));
     } catch (error) {
       empty(nodes.adminMarketList, '市场管理加载失败：' + error.message);
     }

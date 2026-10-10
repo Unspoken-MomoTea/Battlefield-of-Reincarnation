@@ -130,7 +130,7 @@ test('selling asset changes display immediately despite stalled market and walle
   assert.equal(quoteRequests, 0, 'preview quotes are not fetched in the click handler');
 });
 
-test('sell quota makes cross-save listings explicit without an empty warning strip', async () => {
+test('sell quota shows only the current save listing count without an empty warning strip', async () => {
   const nodes = {
     marketModes: [], marketPanels: [], marketCategories: [],
     marketSellList: new Node(), marketSellCount: new Node(),
@@ -143,8 +143,7 @@ test('sell quota makes cross-save listings explicit without an empty warning str
   const marketService = {
     inventory: async () => ({ assets: [asset], inHub: true, coin: 1000 }),
     mine: async () => ({
-      active_listing_count: 1, active_listing_save_count: 0,
-      active_listing_other_save_count: 1, active_listing_limit: 10,
+      active_listing_count: 0, active_listing_limit: 10,
       listings: [], wallet: { balance: 0 },
     }),
     catalogSnapshot: async () => ({ items: [] }),
@@ -164,9 +163,7 @@ test('sell quota makes cross-save listings explicit without an empty warning str
   await Promise.resolve();
   const editor = nodes.marketSellEditor.children[0];
   const slots = editor.querySelectorAll('.rw-ah-listing-slots')[0];
-  assert.match(slots.textContent, /账号在售 1 \/ 10/u);
-  assert.match(slots.textContent, /当前存档 0/u);
-  assert.match(slots.textContent, /其他存档 1/u);
+  assert.equal(slots.textContent, '在售挂单 0 / 10');
   assert.equal(editor.querySelectorAll('.rw-market-notice')
     .find(node => node.textContent === '')?.hidden, true);
 });

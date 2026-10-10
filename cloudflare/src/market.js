@@ -762,7 +762,7 @@ export async function createMarketListing(request, env, user) {
        listing_fee, is_system, restock_day, created_at, updated_at, catalog_key, quality, subtype)
      SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, 0, '', ?, ?, ?, ?, ?
      WHERE (SELECT COUNT(*) FROM market_listings
-            WHERE seller_user_id = ? AND is_system = 0 AND status = 'active'
+            WHERE seller_user_id = ? AND save_id = ? AND is_system = 0 AND status = 'active'
               AND remaining_quantity > 0 AND expires_at > ?) < ?`,
   ).bind(
     id,
@@ -785,11 +785,12 @@ export async function createMarketListing(request, env, user) {
     meta.quality,
     meta.subtype,
     user.id,
+    user.market_save_id,
     now,
     MAX_ACTIVE_LISTINGS,
   ).run();
   if (Number(inserted.meta?.changes || 0) !== 1) {
-    throw new HttpError(409, 'market_listing_limit', '最多只能同时上架 10 个商品，请先撤回或等待挂单售完');
+    throw new HttpError(409, 'market_listing_limit', '当前存档最多同时上架 10 个商品，请先撤回或等待挂单售完');
   }
 
   await refreshMarketCatalogKey(env, meta.catalog_key);
@@ -1201,22 +1202,16 @@ export async function getMarketMe(env, user) {
     [user.id, user.market_save_id],
   );
   const orderState = await getMarketOrderState(env, user);
+  // Listing slots are save-specific, just like inventory and escrow.
+  // Orphaned listings from deleted or abandoned saves must not use another save's quota.
   const activeCount = await first(env,
-    `SELECT COUNT(*) AS count,
-            SUM(CASE WHEN save_id = ? THEN 1 ELSE 0 END) AS save_count
-     FROM market_listings
-     WHERE seller_user_id = ? AND is_system = 0 AND status = 'active'
+    `SELECT COUNT(*) AS count FROM market_listings
+     WHERE seller_user_id = ? AND save_id = ? AND is_system = 0 AND status = 'active'
        AND remaining_quantity > 0 AND expires_at > ?`,
-    [user.market_save_id, user.id, nowMs()]);
-  // The 10-listing cap is shared across a Discord account, while the
-  // inventory and recoverable returns are scoped to the originating save.
-  const activeGlobal = integer(activeCount?.count);
-  const activeInSave = integer(activeCount?.save_count);
+    [user.id, user.market_save_id, nowMs()]);
 
   return json({
-    active_listing_count: activeGlobal,
-    active_listing_save_count: activeInSave,
-    active_listing_other_save_count: Math.max(0, activeGlobal - activeInSave),
+    active_listing_count: integer(activeCount?.count),
     active_listing_limit: MAX_ACTIVE_LISTINGS,
     wallet: {
       balance: integer(wallet?.balance, 0),

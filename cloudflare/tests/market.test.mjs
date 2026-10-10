@@ -1200,7 +1200,7 @@ test('market suspension hides active offers but still lets owners recover escrow
   assert.ok(ownerMe.body.pending_swap_transfers.some(item => item.swap_id === 'suspension-swap'));
 });
 
-test('a user cannot exceed ten active listings, including concurrent-looking sequential submissions', async () => {
+test('one save cannot exceed ten active listings, including sequential submissions', async () => {
   const testEnv = env();
   const seller = createUser(testEnv, '20110', 'Limited Seller');
   const headers = authHeaders(testEnv, seller, 'limit-token');
@@ -1228,8 +1228,8 @@ test('a user cannot exceed ten active listings, including concurrent-looking seq
   assert.equal(denied.body.code, 'market_listing_limit');
   const me = await jsonRequest(testEnv, '/api/market/me', { headers });
   assert.equal(me.body.active_listing_count, 10);
-  assert.equal(me.body.active_listing_save_count, 10);
-  assert.equal(me.body.active_listing_other_save_count, 0);
+  assert.equal(Object.hasOwn(me.body, 'active_listing_save_count'), false);
+  assert.equal(Object.hasOwn(me.body, 'active_listing_other_save_count'), false);
 
   const cancel = await jsonRequest(testEnv, '/api/market/listings/limit-listing-0/cancel',
     { method: 'POST', headers });
@@ -1264,13 +1264,11 @@ test('different saves cannot take another save market inventory or earnings', as
   assert.equal(created.response.status, 201);
   const otherMe = await jsonRequest(testEnv, '/api/market/me', { headers: sellerB });
   assert.equal(otherMe.body.listings.length, 0);
-  assert.equal(otherMe.body.active_listing_count, 1);
-  assert.equal(otherMe.body.active_listing_save_count, 0);
-  assert.equal(otherMe.body.active_listing_other_save_count, 1);
+  assert.equal(otherMe.body.active_listing_count, 0, 'other saves must never consume this save listing slots');
+  assert.equal(Object.hasOwn(otherMe.body, 'active_listing_other_save_count'), false);
   const firstMe = await jsonRequest(testEnv, '/api/market/me', { headers: sellerA });
   assert.equal(firstMe.body.active_listing_count, 1);
-  assert.equal(firstMe.body.active_listing_save_count, 1);
-  assert.equal(firstMe.body.active_listing_other_save_count, 0);
+  assert.equal(Object.hasOwn(firstMe.body, 'active_listing_save_count'), false);
   const wrongCancel = await jsonRequest(testEnv, '/api/market/listings/scope-listing-1/cancel',
     { method: 'POST', headers: sellerB });
   assert.equal(wrongCancel.response.status, 404);
@@ -1433,4 +1431,51 @@ test('expired listing auto-recycle does not queue narration and cleanup remains 
     method: 'POST', headers,
   });
   assert.equal(deprecated.response.status, 404);
+});
+
+test('every save independently gets ten slots, even when another save holds ten active listings', async () => {
+  const testEnv = env();
+  const seller = createUser(testEnv, 'independent-save-cap', 'Independent Seller');
+  const first = authHeaders(testEnv, seller, 'cap-first', 'save:first');
+  const second = authHeaders(testEnv, seller, 'cap-second', 'save:second');
+  const listing = id => ({
+    id,
+    asset: { kind: 'item', name: '容量测试', quantity: 1, data: { 名称: '容量测试', 数量: 1, 品质: 'E' } },
+    unit_price: 20,
+    duration_hours: 24,
+  });
+  for (let i = 0; i < 10; i++) {
+    assert.equal((await jsonRequest(testEnv, '/api/market/listings', {
+      method: 'POST', headers: first,
+      body: JSON.stringify(listing('first-' + i)),
+    })).response.status, 201);
+  }
+  let me = await jsonRequest(testEnv, '/api/market/me', { headers: second });
+  assert.equal(me.body.active_listing_count, 0);
+  assert.equal((await jsonRequest(testEnv, '/api/market/listings', {
+    method: 'POST', headers: second,
+    body: JSON.stringify(listing('second-0')),
+  })).response.status, 201, 'another save listing cannot block this save');
+  me = await jsonRequest(testEnv, '/api/market/me', { headers: second });
+  assert.equal(me.body.active_listing_count, 1);
+  for (let i = 1; i < 10; i++) {
+    assert.equal((await jsonRequest(testEnv, '/api/market/listings', {
+      method: 'POST', headers: second,
+      body: JSON.stringify(listing('second-' + i)),
+    })).response.status, 201);
+  }
+  const firstFull = await jsonRequest(testEnv, '/api/market/listings', {
+    method: 'POST', headers: first,
+    body: JSON.stringify(listing('first-over')),
+  });
+  const secondFull = await jsonRequest(testEnv, '/api/market/listings', {
+    method: 'POST', headers: second,
+    body: JSON.stringify(listing('second-over')),
+  });
+  assert.equal(firstFull.response.status, 409);
+  assert.equal(firstFull.body.code, 'market_listing_limit');
+  assert.equal(secondFull.response.status, 409);
+  assert.equal(secondFull.body.code, 'market_listing_limit');
+  assert.equal((await jsonRequest(testEnv, '/api/market/me', { headers: first })).body.active_listing_count, 10);
+  assert.equal((await jsonRequest(testEnv, '/api/market/me', { headers: second })).body.active_listing_count, 10);
 });

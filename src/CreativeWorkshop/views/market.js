@@ -1026,17 +1026,13 @@ export function createMarketView({
       if (serial !== sellEditorSerial) return;
       const count = Number(mine?.active_listing_count || 0);
       const limit = Number(mine?.active_listing_limit || MAX_ACTIVE_LISTINGS);
-      const thisSave = Number(mine?.active_listing_save_count || 0);
-      const otherSaves = Number(mine?.active_listing_other_save_count || 0);
-      slots.textContent = '账号在售 ' + count + ' / ' + limit
-        + ' · 当前存档 ' + thisSave
-        + (otherSaves ? ' · 其他存档 ' + otherSaves : '');
+      slots.textContent = '在售挂单 ' + count + ' / ' + limit;
       slots.classList.toggle('is-full', count >= limit);
       submit.disabled = count >= limit;
       const full = count >= limit;
       limitNotice.hidden = !full;
       limitNotice.textContent = full
-        ? '整个 Discord 账号最多同时上架 ' + limit + ' 个商品，请先从对应存档撤回或等待售完。'
+        ? '当前存档最多同时上架 ' + limit + ' 个商品，请先撤回或等待售完。'
         : '';
     };
     if (cachedMine) updateSlots(cachedMine);

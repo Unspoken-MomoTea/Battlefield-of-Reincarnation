@@ -113,7 +113,7 @@ export const MARKET_CSS = `
 .rw-ah-teammate-chip strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:#cbd2db}
 .rw-ah-teammate-chip small{font-size:9px;color:#9d90d0}
 .rw-ah-teammate-chip em{font-style:normal;font-size:9px;color:#8b95a2}
-.rw-ah-teammate-chip:has(.rw-ah-teammate-raw){flex-wrap:wrap;align-items:flex-start}
+.rw-ah-teammate-chip.has-raw{flex-wrap:wrap;align-items:flex-start}
 .rw-ah-teammate-raw{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;min-width:0}
 .rw-ah-teammate-chip>.rw-ah-teammate-raw{flex-basis:100%;padding-top:3px;border-top:1px solid rgba(255,255,255,.055)}
 .rw-ah-teammate-raw-item{display:inline-flex;align-items:baseline;gap:2px;max-width:100%;font-size:9px;color:#8290a1;word-break:break-word}

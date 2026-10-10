@@ -104,7 +104,7 @@ test('health endpoint exposes the service contract', async () => {
   assert.deepEqual(await response.json(), {
     ok: true,
     service: 'reincarnation-workshop',
-    version: '0.13.16',
+    version: '0.13.17',
     update_channel: 'stable',
     update_ref: 'workshop-stable',
   });

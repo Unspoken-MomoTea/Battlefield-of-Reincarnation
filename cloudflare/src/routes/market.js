@@ -79,15 +79,16 @@ export async function routeMarket(request, env, pathname) {
   const parts=pathname.split('/').filter(Boolean);
   if(parts[0]==='api' && parts[1]==='market' && parts[2]==='deals' && parts.length>=4) {
     const me=await marketUser(request,env);
+    const dealId=decodeURIComponent(parts[3]);
     if(parts.length===4 && request.method==='GET')
-      return getMarketDeal(env,me,parts[3]);
+      return getMarketDeal(env,me,dealId);
     if(parts.length===5 && parts[4]==='bids' && request.method==='POST')
-      return submitMarketBid(request,env,me,parts[3]);
+      return submitMarketBid(request,env,me,dealId);
     if(parts.length===5 && parts[4]==='cancel' && request.method==='POST')
-      return closeMarketDeal(env,me,parts[3]);
+      return closeMarketDeal(env,me,dealId);
     if(parts.length===7 && parts[4]==='bids' && request.method==='POST') {
-      if(parts[6]==='accept') return decideMarketBid(env,me,parts[3],parts[5],true);
-      if(parts[6]==='reject') return decideMarketBid(env,me,parts[3],parts[5],false);
+      if(parts[6]==='accept') return decideMarketBid(env,me,dealId,decodeURIComponent(parts[5]),true);
+      if(parts[6]==='reject') return decideMarketBid(env,me,dealId,decodeURIComponent(parts[5]),false);
     }
   }
   const withdrawal=entityId(pathname,'deal-bids','withdraw');

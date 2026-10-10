@@ -309,7 +309,11 @@ export async function getMarketDealState(env,user) {
   };
 }
 export async function confirmMarketDealTransfer(env,user,transferIdValue) {
-  const transferId=id(transferIdValue);
+  // Transfer IDs carry a fixed prefix plus a user-supplied deal/bid ID.
+  // They can be longer than a standard 96-character order ID.
+  const transferId=String(transferIdValue || '');
+  if (!/^[A-Za-z0-9:_-]{6,128}$/u.test(transferId))
+    throw new HttpError(400,'deal_transfer_invalid_id','订单领取凭证 ID 无效');
   const row=await first(env,'SELECT * FROM market_deal_transfers WHERE id=? AND user_id=? AND save_id=?',
     transferId,user.id,user.market_save_id);
   if (!row) throw new HttpError(404,'deal_transfer_not_found','领取凭证不存在');

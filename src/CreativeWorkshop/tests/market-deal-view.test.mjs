@@ -171,3 +171,86 @@ test('order picker has labeled asset selection, quantity, useful placeholders an
   assert.match(allText(pane),/选择资产/u);
   assert.ok(walk(pane,node=>node.classes.has('rw-ah-deal-asset-row')).length, 'asset picker row displayed');
 });
+
+test('escrow, open order rows, claim queue and bids all reveal asset categories',async()=>{
+  const nodes={
+    marketOrderViews:[new Node('button'),new Node('button')],
+    marketOrderCreate:new Node('button'),
+    marketSwapCreate:new Node('button'),
+    marketOrderRefresh:new Node('button'),
+    marketOrderExamples:new Node('button'),
+    marketOrdersList:new Node(),marketOrdersEditor:new Node(),
+  };
+  nodes.marketOrderViews[0].dataset.marketOrderView='all';
+  nodes.marketOrderViews[1].dataset.marketOrderView='mine';
+  const assets=[
+    {kind:'item',name:'测试',quantity:1,data:{名称:'测试',品质:'D'}},
+    {kind:'equipment',name:'苍月护甲',quantity:1,data:{名称:'苍月护甲',品质:'C'}},
+    {kind:'bloodline',name:'精灵血统',quantity:1,data:{名称:'精灵血统',品质:'B'}},
+    {kind:'skill',name:'治疗术',quantity:1,data:{名称:'治疗术',品质:'A'}},
+    {kind:'teammate',name:'医师莉亚',quantity:1,data:{名称:'医师莉亚',品质:'D'}},
+  ];
+  const deal={id:'deal:categories',title:'测试资产分类',wanted:'寻找任意伙伴',
+    status:'active',bid_count:1,owner:{id:7,display_name:'卖家'},
+    offer:{coins:25,assets},
+  };
+  const service={
+    async listDeals(){return{items:[deal]};},
+    async getDeal(){return{deal,owner:true,bids:[{
+      id:'bid:cat',bidder:{id:8,display_name:'报价者'},
+      offer:{coins:0,assets:[{kind:'form',name:'龙化',quantity:1,data:{名称:'龙化',品质:'S'}}]},
+      status:'pending',
+    }]};},
+    async myDeals(){return{deals:[deal],my_bids:[],pending_deal_transfers:[{
+      id:'refund:cat',offer:{coins:0,assets:[{kind:'equipment',name:'退还铠甲',quantity:1}]},
+    }]};},
+  };
+  const view=createMarketDealView({
+    nodes,element,button,
+    empty:(target,message)=>target.replaceChildren(new Node('p','',message)),
+    notifyError:error=>{throw error;},
+    confirmDialog:async()=>false,
+    marketService:service,getAuth:()=>({user:{id:7}}),
+  });
+  view.bind();
+  await view.render();
+  const offerText=allText(nodes.marketOrdersEditor);
+  for(const kind of ['道具','装备','血统','技能','角色','形态']){
+    assert.match(offerText,new RegExp(kind,'u'),'offer/bid detail must show '+kind);
+  }
+  assert.match(allText(nodes.marketOrdersList),/道具.*测试/u,'order summary shows category next to name');
+  assert.ok(walk(nodes.marketOrdersEditor,node=>node.classes.has('rw-ah-deal-kind')).length>=6);
+  nodes.marketOrderViews[1].click();
+  await flush();
+  assert.match(allText(nodes.marketOrdersList),/装备.*退还铠甲/u,'refund pickup shows asset category too');
+});
+
+test('closed deals returned by stale clients are not rendered as active orders',async()=>{
+  const nodes={
+    marketOrderViews:[new Node('button'),new Node('button')],
+    marketOrderCreate:new Node('button'),
+    marketSwapCreate:new Node('button'),
+    marketOrderRefresh:new Node('button'),
+    marketOrderExamples:new Node('button'),
+    marketOrdersList:new Node(),marketOrdersEditor:new Node(),
+  };
+  nodes.marketOrderViews[0].dataset.marketOrderView='all';
+  nodes.marketOrderViews[1].dataset.marketOrderView='mine';
+  const cancelled={id:'deal:cancelled',title:'已撤销的测试订单',status:'cancelled',
+    wanted:'其他资料',offer:{coins:1,assets:[]},bid_count:0};
+  const service={
+    async listDeals(){return{items:[]};},
+    async myDeals(){return{
+      deals:[cancelled],my_bids:[{id:'bid:old',status:'withdrawn',deal_id:cancelled.id,offer:{coins:1,assets:[]}}],
+      pending_deal_transfers:[{id:'refund:closed',offer:{coins:1,assets:[]}}],
+    };},
+  };
+  const view=createMarketDealView({nodes,element,button,empty:(target,msg)=>target.replaceChildren(new Node('p','',msg)),
+    notifyError:error=>{throw error;},confirmDialog:async()=>false,marketService:service,
+    getAuth:()=>({user:{id:7}})});
+  view.bind();
+  nodes.marketOrderViews[1].click();
+  await flush();
+  assert.doesNotMatch(allText(nodes.marketOrdersList),/已撤销的测试订单|bid:old/u);
+  assert.match(allText(nodes.marketOrdersList),/领取至当前存档/u,'refund pickup remains available');
+});

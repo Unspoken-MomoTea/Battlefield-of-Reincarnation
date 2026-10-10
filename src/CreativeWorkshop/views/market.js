@@ -1173,7 +1173,7 @@ export function createMarketView({
 
     const kind = marketKindSelect(orderDraft?.kind || 'item');
     const name = element('input', 'rw-input');
-    name.placeholder = '准确商品名称';
+    name.placeholder = '当前自动撮合需要完全一致的名称';
     name.value = orderDraft?.name || '';
     const qualitySelect = marketQualitySelect(orderDraft?.quality || '');
     const subtype = element('input', 'rw-input');
@@ -1283,7 +1283,7 @@ export function createMarketView({
 
     const wantedKind = marketKindSelect('item');
     const wantedName = element('input', 'rw-input');
-    wantedName.placeholder = '希望获得的准确商品名称';
+    wantedName.placeholder = '当前自动撮合需要完全一致的名称';
     const wantedQuality = marketQualitySelect('');
     const wantedSubtype = element('input', 'rw-input');
     wantedSubtype.placeholder = '可选子类型';

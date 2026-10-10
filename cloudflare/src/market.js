@@ -249,7 +249,7 @@ async function ensureSystemCredentialListings(env) {
   for (const spec of marketCredentialSpecs()) {
     const existing = await first(
       env,
-      'SELECT id, restock_day, asset_json, unit_price FROM market_listings WHERE id = ? LIMIT 1',
+      'SELECT id, restock_day, asset_json, unit_price, total_quantity, remaining_quantity FROM market_listings WHERE id = ? LIMIT 1',
       [spec.id],
     );
     const data = {
@@ -331,6 +331,26 @@ async function ensureSystemCredentialListings(env) {
       ).run();
       await refreshMarketCatalogKey(env, meta.catalog_key);
       continue;
+    }
+
+    // A same-day deploy can lower the quota. Keep units already sold today
+    // counted; never silently replenish a 30-unit legacy row back to ten.
+    if (integer(existing.total_quantity) > spec.quantity) {
+      await env.DB.prepare(
+        `UPDATE market_listings
+         SET remaining_quantity = MAX(0, ? - (total_quantity - remaining_quantity)),
+             total_quantity = ?,
+             status = CASE
+               WHEN MAX(0, ? - (total_quantity - remaining_quantity)) = 0 THEN 'sold'
+               ELSE 'active'
+             END,
+             updated_at = ?
+         WHERE id = ? AND restock_day = ? AND total_quantity > ?`,
+      ).bind(
+        spec.quantity, spec.quantity, spec.quantity, now,
+        spec.id, day, spec.quantity,
+      ).run();
+      await refreshMarketCatalogKey(env, meta.catalog_key);
     }
 
     if (String(existing.asset_json || '') !== assetJson || integer(existing.unit_price) !== spec.unit_price) {

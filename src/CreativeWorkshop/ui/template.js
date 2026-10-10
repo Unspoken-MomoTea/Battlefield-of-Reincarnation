@@ -498,7 +498,7 @@ export function workshopTemplate(version) {
               <option value="all">全部状态</option>
               <option value="sold">已售出</option>
               <option value="cancelled">已取消</option>
-              <option value="filled">已完成</option>
+              <option value="completed">已成交</option>
               <option value="expired">已到期</option>
             </select>
             <label class="rw-inline-check"><input type="checkbox" data-field="admin-market-risk"> 只看异常价格</label>

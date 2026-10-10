@@ -293,11 +293,12 @@ export async function settleExpiredMarketDeals(env,{limit=100}={}) {
 }
 export async function getMarketDealState(env,user) {
   const [mine,participating,transfers]=await Promise.all([
-    all(env,dealSelect+' WHERE d.owner_user_id=? AND d.owner_save_id=? AND d.status=\'active\' ORDER BY d.created_at DESC LIMIT 100',
-      user.id,user.market_save_id),
+    all(env,dealSelect+
+      ' WHERE d.owner_user_id=? AND d.owner_save_id=? AND (d.status=\'active\' OR d.updated_at>?) ORDER BY d.created_at DESC LIMIT 100',
+      user.id,user.market_save_id,now()-3*86400000),
     all(env, bidSelect +
-      ' WHERE b.bidder_user_id=? AND b.bidder_save_id=? AND b.status=\'pending\' ORDER BY b.created_at DESC LIMIT 100',
-      user.id,user.market_save_id),
+      ' WHERE b.bidder_user_id=? AND b.bidder_save_id=? AND (b.status=\'pending\' OR b.updated_at>?) ORDER BY b.created_at DESC LIMIT 100',
+      user.id,user.market_save_id,now()-3*86400000),
     all(env,sql('SELECT * FROM market_deal_transfers',
       'WHERE user_id=? AND save_id=? AND confirmed_at IS NULL ORDER BY created_at ASC LIMIT 200'),
       user.id,user.market_save_id),

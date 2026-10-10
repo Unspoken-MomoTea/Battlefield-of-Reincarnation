@@ -624,7 +624,8 @@ export function createMarketService({ host, api }) {
       if (current < amount) throw new Error('空间币余额不足');
       for (const selection of selected) {
         const located = findAsset(next.stat_data, selection.kind, selection.key);
-        const name = assetName(selection.key, located.value);
+        const grade = credentialKeyGrade(selection.key);
+        const name = grade ? grade + '级权限凭证' : assetName(selection.key, located.value);
         const removed = removeAsset(next.stat_data, selection);
         assets.push(assetPayload({
           kind: selection.kind, name, quantity: removed.quantity, data: removed.data,

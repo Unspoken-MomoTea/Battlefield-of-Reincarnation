@@ -95,12 +95,12 @@ export async function listAdminMarket(request, env, user) {
        JOIN users u ON u.id=d.owner_user_id
        LEFT JOIN market_user_controls c ON c.user_id=d.owner_user_id
        ${clauses.length ? 'WHERE ' + clauses.join(' AND ') : ''}
-       ORDER BY d.created_at DESC LIMIT ? OFFSET ?`,
-      [...args,limit,offset],
+       ORDER BY d.created_at DESC, d.id DESC LIMIT ? OFFSET ?`,
+      [...args,limit+1,offset],
     );
     return json({
       view:'deals',
-      items: rows.map(row=>({
+      items: rows.slice(0,limit).map(row=>({
         id:row.id, title:row.title, wanted:row.wanted,
         offer:{coins:integer(row.offer_coins),assets:parseJson(row.offer_assets_json,[])},
         bid_count:integer(row.bid_count),status:row.status,
@@ -109,7 +109,7 @@ export async function listAdminMarket(request, env, user) {
           display_name:row.owner_display_name||row.owner_username,
           market_suspended:integer(row.owner_market_suspended)},
       })),
-      next_offset:rows.length>=limit ? offset+limit : null,
+      next_offset:rows.length>limit ? offset+limit : null,
     });
   }
 
@@ -122,6 +122,15 @@ export async function listAdminMarket(request, env, user) {
     clauses.push('(l.asset_name LIKE ? OR u.display_name LIKE ?)');
     args.push('%' + query + '%', '%' + query + '%');
   }
+  if (riskOnly) {
+    // SQL filter must run before paging; quality bounds mirror priceRisk().
+    const grade = "UPPER(COALESCE(NULLIF(json_extract(l.asset_json,'$.品质'),''), NULLIF(json_extract(l.asset_json,'$.层级'),''), NULLIF(l.quality,''),'F'))";
+    const highs = { F:99, E:999, D:4999, C:19999, B:79999, A:319999, S:1270000, SS:5110000, SSS:5120000,
+      'Ⅰ':99, 'Ⅱ':999, 'Ⅲ':4999, 'Ⅳ':19999, 'Ⅴ':79999, 'Ⅵ':319999, 'Ⅶ':1270000, 'Ⅷ':5110000, 'Ⅸ':5120000 };
+    const highPrice = 'CASE ' + grade + ' ' + Object.entries(highs)
+      .map(([key,high]) => "WHEN '" + key + "' THEN " + high).join(' ') + ' ELSE 99 END';
+    clauses.push('l.unit_price > 10 * (' + highPrice + ')');
+  }
   const rows = await all(
     env,
     `SELECT l.*, u.display_name AS seller_display_name, u.username AS seller_username,
@@ -130,12 +139,12 @@ export async function listAdminMarket(request, env, user) {
      JOIN users u ON u.id = l.seller_user_id
      LEFT JOIN market_user_controls c ON c.user_id = l.seller_user_id
      ${clauses.length ? 'WHERE ' + clauses.join(' AND ') : ''}
-     ORDER BY l.created_at DESC LIMIT ? OFFSET ?`,
-    [...args, limit, offset],
+     ORDER BY l.created_at DESC, l.id DESC LIMIT ? OFFSET ?`,
+    [...args, limit + 1, offset],
   );
   return json({
     view: 'listings',
-    items: rows.map(row => ({
+    items: rows.slice(0,limit).map(row => ({
       id: row.id,
       asset: asset(row),
       unit_price: integer(row.unit_price),
@@ -150,7 +159,7 @@ export async function listAdminMarket(request, env, user) {
       },
       risk: priceRisk(row),
     })),
-    next_offset: rows.length >= limit ? offset + limit : null,
+    next_offset: rows.length > limit ? offset + limit : null,
   });
 }
 
@@ -162,28 +171,31 @@ export async function adminCancelMarketListing(env, user, listingId) {
 
   const now = Date.now();
   const returnId = ('admin-return:' + row.id).slice(0, 96);
-  await runBatch(env, [
-    env.DB.prepare(
-      `UPDATE market_listings
-       SET status = 'cancelled', remaining_quantity = 0, updated_at = ?
-       WHERE id = ? AND status = 'active'`,
-    ).bind(now, row.id),
+  // The D1 batch, not the preflight SELECT, decides current stock and refund.
+  if (!env.DB?.batch) throw new Error('D1 atomic batch is required for moderation');
+  const result = await env.DB.batch([
     env.DB.prepare(
       `INSERT OR IGNORE INTO market_returns
         (id, listing_id, user_id, save_id, asset_kind, market_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
-    ).bind(
-      returnId, row.id, row.seller_user_id, row.save_id, row.asset_kind, logicalKind(row),
-      row.asset_name, row.asset_json, row.remaining_quantity, now,
-    ),
+       SELECT ?, id, seller_user_id, save_id, asset_kind,
+         COALESCE(NULLIF(market_kind, ''), asset_kind), asset_name, asset_json,
+         remaining_quantity, NULL, ?
+       FROM market_listings WHERE id=? AND status='active' AND remaining_quantity>0`,
+    ).bind(returnId, now, row.id),
+    env.DB.prepare(
+      `UPDATE market_listings SET status='cancelled', remaining_quantity=0, updated_at=?
+       WHERE id=? AND status='active' AND EXISTS (
+         SELECT 1 FROM market_returns r WHERE r.id=? AND r.listing_id=market_listings.id)`,
+    ).bind(now, row.id, returnId),
   ]);
+  if (!result[1]?.meta?.changes) return json({ok:true,changed:false});
   if (row.catalog_key) await refreshMarketCatalogKey(env, row.catalog_key);
   await writeModerationAudit(env, user, {
     action: 'market_listing_cancel',
     targetUserId: row.seller_user_id,
     note: '强制下架 ' + row.asset_name + ' (' + row.id + ')',
   });
-  return json({ ok: true, return_id: returnId });
+  return json({ ok: true, changed:true, return_id: returnId });
 }
 
 export async function adminSetMarketUserState(request, env, user, targetUserIdValue) {

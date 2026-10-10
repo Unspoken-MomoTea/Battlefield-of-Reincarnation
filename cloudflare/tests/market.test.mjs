@@ -2022,3 +2022,37 @@ test('refund receipts distinguish owner id from bidder id even when identical',a
   assert.deepEqual(e.DB.db.prepare('SELECT id FROM market_deal_transfers ORDER BY id').all().map(x=>x.id),
     ['refund:bid:shared:reference','refund:owner:shared:reference']);
 });
+
+test('moderation price risk is filtered before page limits',async()=>{
+  const e=env(),admin=createUser(e,'risk-admin-new','管理员'),
+    seller=createUser(e,'risk-seller-new','卖家');
+  e.DB.db.prepare('UPDATE users SET is_admin=1 WHERE id=?').run(admin.id);
+  const ha=authHeaders(e,admin,'risk-admin-new-auth'), hs=authHeaders(e,seller,'risk-seller-new-auth');
+  for(const [id,price] of [['risk:ordinary',40],['risk:expensive',2000]]){
+    const x=await jsonRequest(e,'/api/market/listings',{method:'POST',headers:hs,
+      body:JSON.stringify({id,duration_hours:24,
+        asset:{kind:'item',name:id,quantity:1,data:{名称:id,品质:'F',数量:1}},unit_price:price})});
+    assert.equal(x.response.status,201);
+  }
+  const risk=(await jsonRequest(e,'/api/admin/market?view=listings&risk=1',{headers:ha})).body;
+  assert.deepEqual(risk.items.map(x=>x.id),['risk:expensive']);
+  const first=(await jsonRequest(e,'/api/admin/market?view=listings&limit=1',{headers:ha})).body;
+  assert.equal(first.next_offset,1);
+  const second=(await jsonRequest(e,'/api/admin/market?view=listings&limit=1&offset=1',{headers:ha})).body;
+  assert.equal(second.items.length,1);
+  assert.equal(second.next_offset,null);
+});
+test('moderator cancellation refunds exactly the live remaining stock',async()=>{
+  const e=env(),admin=createUser(e,'atomic-admin-new','管理员'),seller=createUser(e,'atomic-seller-new','卖家');
+  e.DB.db.prepare('UPDATE users SET is_admin=1 WHERE id=?').run(admin.id);
+  const ha=authHeaders(e,admin,'atomic-admin-new-auth'),hs=authHeaders(e,seller,'atomic-seller-new-auth');
+  const created=await jsonRequest(e,'/api/market/listings',{method:'POST',headers:hs,
+    body:JSON.stringify({id:'atomic:listing',duration_hours:24,
+      asset:{kind:'item',name:'药剂',quantity:2,data:{名称:'药剂',品质:'F',数量:2}},unit_price:10})});
+  assert.equal(created.response.status,201);
+  e.DB.db.prepare("UPDATE market_listings SET remaining_quantity=1 WHERE id='atomic:listing'").run();
+  assert.equal((await jsonRequest(e,'/api/admin/market-listings/atomic%3Alisting/cancel',{method:'POST',headers:ha})).response.status,200);
+  assert.equal(e.DB.db.prepare("SELECT quantity FROM market_returns WHERE listing_id='atomic:listing'").get().quantity,1);
+  assert.equal((await jsonRequest(e,'/api/admin/market-listings/atomic%3Alisting/cancel',{method:'POST',headers:ha})).response.status,200);
+  assert.equal(e.DB.db.prepare("SELECT COUNT(*) AS n FROM market_returns WHERE listing_id='atomic:listing'").get().n,1);
+});

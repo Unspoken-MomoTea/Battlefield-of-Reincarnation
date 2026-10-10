@@ -492,7 +492,7 @@ export function workshopTemplate(version) {
               <option value="listings">商品拍卖</option>
               <option value="deals">自由订单</option>
             </select>
-            <input class="rw-input grow" data-field="admin-market-search" placeholder="搜索商品或玩家">
+            <input class="rw-input grow" data-field="admin-market-search" placeholder="搜索商品、订单或玩家">
             <select class="rw-select" data-field="admin-market-status">
               <option value="active" selected>进行中</option>
               <option value="all">全部状态</option>

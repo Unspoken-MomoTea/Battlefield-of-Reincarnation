@@ -116,6 +116,7 @@ export function createMarketBrowseStore({
     const key = JSON.stringify(filters);
     const cacheKey = key+':'+offset;
     if (!force && pageCache.has(cacheKey)) {
+      ++pageGeneration; // A cached navigation also invalidates stale in-flight pages.
       pageFilterKey = key;
       visiblePage = pageCache.get(cacheKey);
       return visiblePage;

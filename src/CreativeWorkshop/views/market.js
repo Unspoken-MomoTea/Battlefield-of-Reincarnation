@@ -813,17 +813,10 @@ export function createMarketView({
       return;
     }
 
+    // Category and quality are already visible in the left inventory row
+    // and the right-hand asset data. A second header repeats them.
     const editor = element('div', 'rw-ah-sell-editor-body');
-    const head = element('div', 'rw-ah-inspector-head');
-    const headCopy = element('div');
-    const tags = element('div', 'rw-ah-inspector-kicker');
-    tags.append(
-      element('span', 'rw-market-kind', kindLabel(asset.kind)),
-      qualityName(element('span', 'rw-market-quality', quality(asset) || '未标注'), asset),
-    );
-    headCopy.append(tags);
-    head.append(headCopy);
-    editor.append(head, assetDetail(asset));
+    editor.append(assetDetail(asset));
     if (asset.kind === 'teammate') {
       editor.append(element(
         'p',
@@ -881,11 +874,9 @@ export function createMarketView({
     const auctionLabel = element('div', 'rw-ah-section-label', '拍卖');
     editor.append(auctionLabel);
     const cachedMine = mineStateCache;
-    const activeListingCount = Number(cachedMine?.active_listing_count || 0);
-    const listingLimit = Number(cachedMine?.active_listing_limit || MAX_ACTIVE_LISTINGS);
-    const slots = element('div', 'rw-ah-listing-slots',
-      cachedMine ? '在售挂单 ' + activeListingCount + ' / ' + listingLimit : '正在同步挂单名额…');
+    const slots = element('div', 'rw-ah-listing-slots', '正在同步账号挂单名额…');
     const limitNotice = element('p', 'rw-market-notice warning');
+    limitNotice.hidden = true;
     editor.append(slots, limitNotice);
 
     const form = element('div', 'rw-ah-sell-form');
@@ -952,7 +943,7 @@ export function createMarketView({
       const unitPrice = Math.max(0, Math.floor(Number(price.value) || 0));
       const gross = unitPrice * amount;
       total.textContent = unitPrice > 0
-        ? '预计成交额 ' + coin(gross) + ' 空间币 · 成交后另扣 3% 公证费'
+        ? '预计成交额 ' + coin(gross) + ' 空间币 · 成交后不再扣费'
         : '设置一口价后可上架';
     };
 
@@ -1011,7 +1002,7 @@ export function createMarketView({
         message: '上架“' + asset.name + '” ×' + amount
           + '，一口价 ' + coin(unitPrice) + ' 空间币 / 件，挂牌 ' + durationHours
           + ' 小时。立即收取上架税 ' + coin(listingFee)
-          + ' 空间币；成交后再从卖家货款扣 3% 公证费。到期后有 72 小时取回期，逾期由系统自动回收。',
+          + ' 空间币；成交后全额结算，不再额外扣费。到期后有 72 小时取回期，逾期由系统自动回收。',
         confirmText: '支付上架税并拍卖',
       });
       if (!ok) return;
@@ -1035,11 +1026,17 @@ export function createMarketView({
       if (serial !== sellEditorSerial) return;
       const count = Number(mine?.active_listing_count || 0);
       const limit = Number(mine?.active_listing_limit || MAX_ACTIVE_LISTINGS);
-      slots.textContent = '在售挂单 ' + count + ' / ' + limit;
+      const thisSave = Number(mine?.active_listing_save_count || 0);
+      const otherSaves = Number(mine?.active_listing_other_save_count || 0);
+      slots.textContent = '账号在售 ' + count + ' / ' + limit
+        + ' · 当前存档 ' + thisSave
+        + (otherSaves ? ' · 其他存档 ' + otherSaves : '');
       slots.classList.toggle('is-full', count >= limit);
       submit.disabled = count >= limit;
-      limitNotice.textContent = count >= limit
-        ? '最多同时上架 ' + limit + ' 个商品，请先撤回或等待挂单售完；系统回收不受限制。'
+      const full = count >= limit;
+      limitNotice.hidden = !full;
+      limitNotice.textContent = full
+        ? '整个 Discord 账号最多同时上架 ' + limit + ' 个商品，请先从对应存档撤回或等待售完。'
         : '';
     };
     if (cachedMine) updateSlots(cachedMine);

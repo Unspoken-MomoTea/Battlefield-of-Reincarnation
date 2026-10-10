@@ -1843,3 +1843,48 @@ test('My Orders endpoint always returns a parseable JSON response for empty and 
   assert.equal(guestState.my_bids.length, 1);
   assert.equal(guestState.my_bids[0].id, 'bid:me-json-test');
 });
+
+test('admin market hides reset-era stale test listings, shows active stock, and safely purges orphan rows', async()=>{
+  const testEnv=env();
+  const admin=createUser(testEnv,'admin-market-reset','Admin Reset');
+  testEnv.DB.db.prepare('UPDATE users SET is_admin = 1 WHERE id = ?').run(admin.id);
+  const seller=createUser(testEnv,'seller-market-reset','Reset Seller');
+  const adminHeaders=authHeaders(testEnv,admin,'admin-market-reset-auth');
+  const sellerHeaders=authHeaders(testEnv,seller,'seller-market-reset-auth');
+  const makeListing=(id,name)=>jsonRequest(testEnv,'/api/market/listings',{
+    method:'POST',headers:sellerHeaders,
+    body:JSON.stringify({id,duration_hours:24,
+      asset:{kind:'item',name,quantity:2,data:{名称:name,品质:'E',数量:2}},
+      unit_price:40}),
+  });
+  assert.equal((await makeListing('reset-old-test','测试旧物品')).response.status,201);
+  assert.equal((await makeListing('reset-active-current','正常在售物品')).response.status,201);
+  assert.equal((await makeListing('reset-refund-linked','留有退款凭证的旧物品')).response.status,201);
+  testEnv.DB.db.prepare(
+    "UPDATE market_listings SET status='cancelled',remaining_quantity=0,updated_at=0 WHERE id IN ('reset-old-test','reset-refund-linked')",
+  ).run();
+  testEnv.DB.db.prepare(
+    "INSERT INTO market_returns (id,listing_id,user_id,save_id,asset_kind,market_kind,asset_name,asset_json,quantity,confirmed_at,created_at) VALUES (?,?,?,?,?,?,?,?,?,NULL,?)",
+  ).run('reset-linked-return','reset-refund-linked',seller.id,'test-save-1',
+    'item','item','留有退款凭证的旧物品',JSON.stringify({名称:'留有退款凭证的旧物品',数量:2}),2,Date.now());
+  const before=await jsonRequest(testEnv,'/api/admin/market?view=listings', {headers:adminHeaders});
+  assert.equal(before.response.status,200);
+  assert.deepEqual(before.body.items.map(x=>x.id),['reset-active-current'],
+    'default admin view shows active listings only');
+  const allStatuses=await jsonRequest(testEnv,'/api/admin/market?view=listings&status=all',{headers:adminHeaders});
+  assert.deepEqual(allStatuses.body.items.map(x=>x.id),['reset-active-current'],
+    'legacy reset-marked rows must not reappear under the All filter');
+
+  testEnv.DB.db.exec('PRAGMA foreign_keys = ON');
+  const migration=readFileSync(new URL('../migrations/0025_purge_archived_market_test_listings.sql',import.meta.url),'utf8');
+  testEnv.DB.db.exec(migration);
+  const old=testEnv.DB.db.prepare("SELECT id FROM market_listings WHERE id='reset-old-test'").get();
+  assert.equal(old,undefined,'unreferenced cancelled testing merchandise must be physically deleted');
+  assert.ok(testEnv.DB.db.prepare("SELECT id FROM market_listings WHERE id='reset-refund-linked'").get(),
+    'keep the parent row of an unclaimed refund');
+  assert.ok(testEnv.DB.db.prepare("SELECT id FROM market_returns WHERE id='reset-linked-return'").get(),
+    'never destroy the unclaimed refund');
+  assert.ok(testEnv.DB.db.prepare("SELECT id FROM market_listings WHERE id='reset-active-current'").get(),
+    'never touch active listings');
+});
+

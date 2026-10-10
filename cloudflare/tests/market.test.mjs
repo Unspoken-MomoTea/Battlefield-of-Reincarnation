@@ -170,7 +170,7 @@ test('testing market supports listing, idempotent purchase, delivery and seller 
     headers: sellerHeaders,
   });
   assert.equal(sellerMe.response.status, 200);
-  assert.equal(sellerMe.body.wallet.balance, 242);
+  assert.equal(sellerMe.body.wallet.balance, 250);
   assert.equal(Object.hasOwn(sellerMe.body, 'sales'), false);
   assert.equal(Object.hasOwn(sellerMe.body, 'purchases'), false);
 
@@ -233,7 +233,7 @@ test('cancelling a listing creates a recoverable return and proceeds use pending
   let sellerMe = await jsonRequest(testEnv, '/api/market/me', { headers: sellerHeaders });
   assert.equal(sellerMe.body.pending_returns.length, 1);
   assert.equal(sellerMe.body.pending_returns[0].quantity, 3);
-  assert.equal(sellerMe.body.wallet.balance, 48);
+  assert.equal(sellerMe.body.wallet.balance, 50);
 
   const confirmedReturn = await jsonRequest(
     testEnv,
@@ -249,7 +249,7 @@ test('cancelling a listing creates a recoverable return and proceeds use pending
     body: JSON.stringify({ payout_id: 'payout-1' }),
   });
   assert.equal(payout.response.status, 200);
-  assert.equal(payout.body.payout.amount, 48);
+  assert.equal(payout.body.payout.amount, 50);
   assert.equal(payout.body.payout.confirmed_at, null);
 
   sellerMe = await jsonRequest(testEnv, '/api/market/me', { headers: sellerHeaders });
@@ -1260,6 +1260,13 @@ test('different saves cannot take another save market inventory or earnings', as
   assert.equal(created.response.status, 201);
   const otherMe = await jsonRequest(testEnv, '/api/market/me', { headers: sellerB });
   assert.equal(otherMe.body.listings.length, 0);
+  assert.equal(otherMe.body.active_listing_count, 1);
+  assert.equal(otherMe.body.active_listing_save_count, 0);
+  assert.equal(otherMe.body.active_listing_other_save_count, 1);
+  const firstMe = await jsonRequest(testEnv, '/api/market/me', { headers: sellerA });
+  assert.equal(firstMe.body.active_listing_count, 1);
+  assert.equal(firstMe.body.active_listing_save_count, 1);
+  assert.equal(firstMe.body.active_listing_other_save_count, 0);
   const wrongCancel = await jsonRequest(testEnv, '/api/market/listings/scope-listing-1/cancel',
     { method: 'POST', headers: sellerB });
   assert.equal(wrongCancel.response.status, 404);

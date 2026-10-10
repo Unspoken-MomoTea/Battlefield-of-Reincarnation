@@ -93,6 +93,9 @@ export function marketAssetDetailEntries(asset) {
   for (const [key, value] of Object.entries(asset?.data || {})) {
     // The selected item's name is already visible in the market listing.
     if (key === '名称' || key === 'name' || HIDDEN_MARKET_DETAIL_KEYS.has(key)) continue;
+    // Gear and item placement is fixed on acquisition, not a market trait.
+    // Keep other categories' status fields (e.g. a form's condition) visible.
+    if (key === '状态' && ['equipment', 'item'].includes(asset?.kind)) continue;
     const pruned = pruneMarketDetailValue(value);
     if (pruned !== undefined) entries.push([key, pruned]);
   }

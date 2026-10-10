@@ -161,8 +161,7 @@ test('market detail hides true stats, technical credential fields and empty valu
   assert.deepEqual(entries, [
     ['品质', 'E'],
     ['描述', '有效描述'],
-    ['状态', 0],
-    ['标签', ['主神空间']],
+     ['标签', ['主神空间']],
   ]);
 });
 
@@ -332,4 +331,20 @@ test('teammate detail preserves personal and nested build raw attributes', () =>
   assert.deepEqual(model.builds.find(([kind]) => kind === '装备')[1][0].rawAttributes, [
     { name: '攻击', value: 'C' },
   ]);
+});
+
+
+// Item/equipment transfer placement is not a product trait; other categories
+// retain their meaningful state (e.g. form condition).
+test('market listing detail hides equipment and item placement but retains form condition', () => {
+  for (const kind of ['equipment', 'item']) {
+    const entries = marketAssetDetailEntries({kind,data:{
+      名称: '交易资产', 品质: 'C', 状态: 2, 类型: '材料', 数量: 1,
+      效果: {附加: '有效效果'},
+    }});
+    assert.equal(entries.some(([key]) => key === '状态'), false, kind);
+    assert.ok(entries.some(([key]) => key === '效果'), 'effects remain visible');
+  }
+  const form = marketAssetDetailEntries({kind:'form',data:{状态:'完好',品质:'A'}});
+  assert.ok(form.some(([key,value]) => key === '状态' && value === '完好'));
 });

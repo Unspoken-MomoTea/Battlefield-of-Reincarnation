@@ -1214,3 +1214,66 @@ test('single-world can claim escrow returned to its own save outside hub', async
   assert.equal(host.read().stat_data.角色.道具.材料.数量, 1);
   assert.equal(confirmed, 1);
 });
+
+
+test('purchased equipment/items and teammates enter the recipient save in default placement', async () => {
+  const host=createHost({
+    系统状态:{是否在主神空间:true},
+    角色:{空间币:0,装备:{},道具:{
+      补给:{名称:'补给',品质:'E',数量:2,状态:0},
+    }},
+    关系列表:{},
+  });
+  const confirmations=[];
+  const service=createMarketService({host,api:{
+    async confirmMarketDelivery(id){confirmations.push(id);return{};},
+  }});
+  for(const [id,asset] of [
+    ['new-equip',{kind:'equipment',name:'法袍',quantity:1,
+      data:{名称:'法袍',品质:'D',状态:2,类型:3}}],
+    ['new-item',{kind:'item',name:'卷轴',quantity:1,
+      data:{名称:'卷轴',品质:'E',状态:1,数量:1}}],
+    ['stacked-item',{kind:'item',name:'补给',quantity:3,
+      data:{名称:'补给',品质:'E',状态:2,数量:3}}],
+    ['new-teammate',{kind:'teammate',name:'星夜',quantity:1,
+      data:{姓名:'星夜',是否队友:true,在场:false,好感度:0}}],
+  ]){
+    await service.deliverTrade({id:'trade:'+id,asset,total_price:0});
+  }
+  const state=host.read().stat_data;
+  assert.equal(state.角色.装备.法袍.状态,0,'equipment is delivered unequipped, even when listed in storage');
+  assert.equal(state.角色.道具.卷轴.状态,0,'items go into the carried item slot');
+  assert.equal(state.角色.道具.补给.数量,5,'status-normalized items join the correct carried stack');
+  assert.equal(state.角色.道具.补给.状态,0);
+  assert.equal(state.关系列表.星夜.是否队友,true);
+  assert.equal(state.关系列表.星夜.在场,true,'purchased teammate is present');
+  assert.equal(confirmations.length,4);
+});
+
+test('market order wins use acquisition defaults but refunds preserve owner placement', async () => {
+  const host=createHost({
+    系统状态:{是否在主神空间:true},
+    角色:{空间币:0,装备:{},道具:{}},
+    关系列表:{},
+  });
+  const service=createMarketService({host,api:{
+    async confirmDealTransfer(){return{};},
+  }});
+  await service.receiveDealTransfer({id:'win:new',offer:{coins:0,assets:[
+    {kind:'equipment',name:'长枪',quantity:1,data:{名称:'长枪',状态:2,品质:'D'}},
+    {kind:'item',name:'药水',quantity:2,data:{名称:'药水',数量:2,状态:1,品质:'E'}},
+    {kind:'teammate',name:'晓',quantity:1,data:{在场:false,是否队友:true,好感度:70}},
+  ]}});
+  let state=host.read().stat_data;
+  assert.equal(state.角色.装备.长枪.状态,0);
+  assert.equal(state.角色.道具.药水.状态,0);
+  assert.equal(state.关系列表.晓.在场,true);
+  await service.receiveDealTransfer({id:'refund:old',offer:{coins:0,assets:[
+    {kind:'equipment',name:'仓库旧剑',quantity:1,data:{名称:'仓库旧剑',状态:2,品质:'F'}},
+    {kind:'teammate',name:'原旅伴',quantity:1,data:{在场:false,是否队友:true,好感度:45}},
+  ]}});
+  state=host.read().stat_data;
+  assert.equal(state.角色.装备.仓库旧剑.状态,2,'refund retains original warehouse placement');
+  assert.equal(state.关系列表.原旅伴.在场,false,'refund retains original teammate presence');
+  assert.equal(state.关系列表.原旅伴.好感度,45);
+});

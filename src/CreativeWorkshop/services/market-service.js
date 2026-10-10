@@ -419,7 +419,7 @@ export function marketItemStorageSlot(bucket, asset) {
   return key;
 }
 
-function addAsset(statData, asset) {
+function addAsset(statData, asset, { acquired = false } = {}) {
   const character = statData.角色 || (statData.角色 = {});
   const credential = credentialGrade(asset);
   if (credential) {
@@ -444,6 +444,7 @@ function addAsset(statData, asset) {
     }
     const next = deepClone(asset.data || {});
     next.是否队友 = true;
+    if (acquired) next.在场 = true;
     statData.关系列表[key] = next;
     return;
   }
@@ -458,13 +459,17 @@ function addAsset(statData, asset) {
 
   if (kind === 'item') {
     const quantity = Math.max(1, Math.floor(Number(asset.quantity) || 1));
-    const storageKey = marketItemStorageSlot(bucket, asset);
+    // Normalize received goods before choosing the stack slot; otherwise an
+    // item in the seller's tactical/storage slot could merge into the wrong pile.
+    const incoming = deepClone(asset.data || {});
+    if (acquired) incoming.状态 = 0;
+    const storageKey = marketItemStorageSlot(bucket, { ...asset, data: incoming });
     const existing = bucket[storageKey];
     if (existing && typeof existing === 'object') {
       existing.数量 = assetQuantity('item', existing) + quantity;
       return;
     }
-    const next = deepClone(asset.data || {});
+    const next = incoming;
     next.数量 = quantity;
     if (!next.名称) next.名称 = key;
     bucket[storageKey] = next;
@@ -478,6 +483,7 @@ function addAsset(statData, asset) {
     throw new Error(`当前存档已经存在同名${MARKET_KIND_LABELS[kind]}“${key}”，请先处理重名资产再领取`);
   }
   const next = deepClone(asset.data || {});
+  if (acquired && kind === 'equipment') next.状态 = 0;
   if (!next.名称 && Object.prototype.hasOwnProperty.call(next, '名称')) next.名称 = key;
   bucket[key] = next;
 }
@@ -824,7 +830,7 @@ export function createMarketService({ host, api }) {
         // A successfully traded teammate loses loyalty to the previous owner.
         // Refund receipts intentionally preserve the original relationship.
         const incoming=transfer.id.startsWith('win:') ? listingAssetSnapshot(asset) : asset;
-        addAsset(next.stat_data,incoming);
+        addAsset(next.stat_data,incoming,{ acquired: transfer.id.startsWith('win:') });
       }
       const amount=Number(transfer.offer?.coins || 0);
       next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0)+amount;
@@ -1139,7 +1145,7 @@ export function createMarketService({ host, api }) {
       if (collisionFor(next.stat_data, fill.asset)) {
         throw new Error(`无法领取“${fill.asset.name}”：当前存档已有同名资产`);
       }
-      addAsset(next.stat_data, fill.asset);
+      addAsset(next.stat_data, fill.asset, { acquired: true });
       deliveries[fill.id] = Date.now();
       appendMarketBroadcast(next, 'order-receive:' + fill.id,
         '[空间集市求购到账][角色] 领取' + receiptAsset(fill.asset, fill.quantity)
@@ -1274,7 +1280,7 @@ export function createMarketService({ host, api }) {
       if (collisionFor(next.stat_data, transfer.asset)) {
         throw new Error(`无法领取“${transfer.asset.name}”：当前存档已有同名资产`);
       }
-      addAsset(next.stat_data, transfer.asset);
+      addAsset(next.stat_data, transfer.asset, { acquired: true });
       transfers[transfer.id] = Date.now();
       appendMarketBroadcast(next, 'swap-receive:' + transfer.id,
         '[空间集市交换领取][角色] 领取' + receiptAsset(transfer.asset, transfer.quantity));
@@ -1298,7 +1304,7 @@ export function createMarketService({ host, api }) {
       if (collisionFor(next.stat_data, trade.asset)) {
         throw new Error(`无法领取“${trade.asset.name}”：当前存档已有同名资产`);
       }
-      addAsset(next.stat_data, trade.asset);
+      addAsset(next.stat_data, trade.asset, { acquired: true });
       deliveries[trade.id] = Date.now();
       appendMarketBroadcast(next, 'purchase:' + trade.id,
         '[空间集市买入][角色] 获得' + receiptAsset(trade.asset, trade.quantity)

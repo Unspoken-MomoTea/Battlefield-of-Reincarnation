@@ -404,4 +404,19 @@ export const MARKET_CSS = `
  .rw-ah-deal-attr-row{grid-template-columns:minmax(68px,31%) minmax(0,1fr);gap:7px}
  .rw-ah-orders-editor{padding:10px}
 }
+
+.rw-ah-deal-description{height:auto!important;min-height:90px!important;resize:vertical;white-space:pre-wrap}
+.rw-ah-deal-detail-head,.rw-ah-deal-bid-head{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;flex-wrap:wrap}
+.rw-ah-deal-detail-head h3{min-width:0;flex:1 1 180px;overflow-wrap:anywhere}
+.rw-ah-deal-status{display:inline-flex;align-items:center;border:1px solid rgba(222,178,91,.30);
+ border-radius:999px;padding:4px 9px;color:#f0cc80;font-size:11px;white-space:nowrap}
+.rw-ah-deal-wanted{padding:12px 14px;border-left:3px solid rgba(226,177,83,.55);
+ border-radius:8px;background:rgba(226,177,83,.045);min-width:0}
+.rw-ah-deal-wanted .rw-ah-order-detail-section{padding-top:0}
+.rw-ah-deal-wanted .rw-ah-order-help{color:#d1dae6;font-size:13px}
+.rw-ah-deal-count{color:#acb7c4;font-size:11px}
+.rw-ah-deal-bid-head strong{font-size:13px;overflow-wrap:anywhere}
+.rw-ah-deal-row-title,.rw-ah-deal-row-wanted,.rw-ah-deal-row-terms{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.rw-ah-deal-row-wanted{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.rw-ah-deal-row-terms{color:#d4b777!important}
 `;

@@ -99,11 +99,17 @@ async function jsonRequest(testEnv, path, init = {}) {
   return { response, body };
 }
 
-test('space market is unavailable on the stable worker even when tables exist', async () => {
+test('stable workshop exposes the same public Bazaar catalog and free orders as testing', async () => {
   const stableEnv = env({ CLIENT_UPDATE_CHANNEL: 'stable', CLIENT_UPDATE_REF: 'workshop-stable' });
-  const { response, body } = await jsonRequest(stableEnv, '/api/market/listings');
-  assert.equal(response.status, 404);
-  assert.equal(body.code, 'not_found');
+  const listings = await jsonRequest(stableEnv, '/api/market/listings');
+  assert.equal(listings.response.status, 200);
+  const catalog = await jsonRequest(stableEnv, '/api/market/catalog?limit=3');
+  assert.equal(catalog.response.status, 200);
+  assert.ok(Array.isArray(catalog.body.items));
+  assert.ok(catalog.body.items.some(item => item.name.includes('权限凭证')));
+  const deals = await jsonRequest(stableEnv, '/api/market/deals?limit=3');
+  assert.equal(deals.response.status, 200);
+  assert.deepEqual(deals.body.items, []);
 });
 
 test('testing market supports listing, idempotent purchase, delivery and seller proceeds', async () => {

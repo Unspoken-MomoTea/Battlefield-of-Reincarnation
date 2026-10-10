@@ -52,7 +52,9 @@ async function marketUser(request, env) {
 }
 
 function marketEnabled(env) {
-  return String(env.CLIENT_UPDATE_CHANNEL || '').trim().toLowerCase() === 'testing';
+  return ['testing','stable'].includes(
+    String(env.CLIENT_UPDATE_CHANNEL || '').trim().toLowerCase()
+  );
 }
 
 function entityId(pathname, entity, suffix = '') {

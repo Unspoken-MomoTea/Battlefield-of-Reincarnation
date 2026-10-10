@@ -5,6 +5,9 @@ const base = String(process.env.WORKSHOP_PRODUCTION_BASE_URL || 'https://worksho
 const shaPattern = /^[0-9a-f]{40}$/iu;
 const skipClientLatest = process.argv.includes('--skip-client-latest');
 
+// Formal release readiness includes the Bazaar: a healthy Worker that silently
+// disables market routes must never pass production smoke tests again.
+
 async function retry(label, fn, attempts = 8) {
   let last;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
@@ -61,6 +64,22 @@ if (!skipClientLatest) {
 } else {
   console.log('Production client latest skipped before stable promotion to avoid warming the previous release.');
 }
+
+await retry('stable Bazaar catalog', async () => {
+  const {response,body} = await fetchJson(`${base}/api/market/catalog?limit=3`);
+  if (!response.ok || !Array.isArray(body.items) || !('next_offset' in body)) {
+    throw new Error(`production Bazaar catalog not available: ${response.status} ${JSON.stringify(body)}`);
+  }
+  console.log('Production Bazaar catalog passed:',body.items.length,'items');
+});
+
+await retry('stable Bazaar free orders', async () => {
+  const {response,body} = await fetchJson(`${base}/api/market/deals?limit=3`);
+  if (!response.ok || !Array.isArray(body.items) || !('next_offset' in body)) {
+    throw new Error(`production Bazaar orders not available: ${response.status} ${JSON.stringify(body)}`);
+  }
+  console.log('Production Bazaar orders passed:',body.items.length,'items');
+});
 
 const openingComponent = await retry('opening component', async () => {
   const { response, body } = await fetchJson(`${base}/api/components/latest?component=opening`);

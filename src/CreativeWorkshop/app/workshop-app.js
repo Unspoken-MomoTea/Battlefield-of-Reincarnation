@@ -1,4 +1,4 @@
-import { getUpdateChannel, resolveHostWindow } from '../config.js';
+import { getUpdateChannel, isMarketEnabled, resolveHostWindow } from '../config.js';
 import { workshopApi } from '../services/api.js';
 import { projectService } from '../services/project-service.js';
 import { createMarketService } from '../services/market-service.js';
@@ -16,7 +16,7 @@ import { bindWorkshopLauncher } from './launcher.js';
 import { createWorkshopViews } from './views.js';
 
 export const GLOBAL_NAME = 'ReincarnationWorkshop';
-export const WORKSHOP_VERSION = '2.0.59';
+export const WORKSHOP_VERSION = '2.0.60';
 
 const CURRENT_SHA = (() => {
   const match = String(import.meta.url).match(
@@ -54,7 +54,7 @@ export function bootWorkshop() {
 
   const doc = host.document;
   const { style, launcher, overlay, nodes } = createWorkshopShell(doc, WORKSHOP_VERSION);
-  const marketEnabled = getUpdateChannel() === 'testing';
+  const marketEnabled = isMarketEnabled();
   const marketService = createMarketService({ host, api: workshopApi });
   if (nodes.marketTab) nodes.marketTab.hidden = !marketEnabled;
   if (nodes.marketNavLabel) nodes.marketNavLabel.hidden = !marketEnabled;

@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   getUpdateChannel,
   getUpdateRef,
+  isMarketEnabled,
   getWorldEngineUpdateChannel,
   getWorldEngineUpdateRef,
   getStatusBarUpdateChannel,
@@ -82,4 +83,12 @@ test('calculator testing must be explicitly opted into', () => {
     assert.equal(getCalculatorUpdateChannel(), 'testing');
     assert.equal(getCalculatorUpdateRef(), 'main');
   });
+});
+
+test('Bazaar navigation is visible on both stable and testing workshop channels', () => {
+  withConfig({ apiBase:'https://workshop.6661816.xyz', updateChannel:'stable' },
+    () => assert.equal(isMarketEnabled(),true));
+  withConfig({ apiBase:'https://workshop-test.6661816.xyz', updateChannel:'testing' },
+    () => assert.equal(isMarketEnabled(),true));
+  assert.equal(isMarketEnabled('unknown'),false);
 });

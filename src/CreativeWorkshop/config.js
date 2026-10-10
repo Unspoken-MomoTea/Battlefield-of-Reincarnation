@@ -52,6 +52,11 @@ export function getUpdateChannel() {
   return 'stable';
 }
 
+// The bazaar is a normal workshop feature on both public release channels.
+export function isMarketEnabled(channel = getUpdateChannel()) {
+  return channel === 'stable' || channel === 'testing';
+}
+
 export function getUpdateRef() {
   const host = resolveHostWindow();
   const configured = String(

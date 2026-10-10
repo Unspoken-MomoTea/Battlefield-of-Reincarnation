@@ -232,7 +232,7 @@ async function ensureSyntheticUser(env, { discordId, username, displayName }) {
 
 async function ensureSystemCredentialListings(env) {
   const channel = String(env.CLIENT_UPDATE_CHANNEL || '').trim().toLowerCase();
-  if (channel !== 'testing') return;
+  if (!['testing','stable'].includes(channel)) return;
 
   const seller = await ensureSyntheticUser(env, {
     discordId: SYSTEM_VENDOR_DISCORD_ID,

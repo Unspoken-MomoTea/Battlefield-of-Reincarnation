@@ -3,6 +3,7 @@ import { listAdminReports, resolveProjectReport } from '../moderation/reports.js
 import { listAdminUsers, setUserBan, setUserModerator } from '../moderation/users.js';
 import {
   adminCancelMarketListing,
+  adminCancelMarketDeal,
   adminSetMarketUserState,
   listAdminMarket,
 } from '../market-admin.js';

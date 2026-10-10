@@ -1614,6 +1614,10 @@ test('negotiated deal accepts exactly one of multiple escrowed bids and refunds 
   const loserMe=await jsonRequest(testEnv,'/api/market/me',{headers:hA});
   assert.equal(ownerMe.body.pending_deal_transfers.length,1);
   assert.equal(ownerMe.body.pending_deal_transfers[0].offer.assets[0].name,'精灵医师');
+  assert.deepEqual((await jsonRequest(testEnv,'/api/market/deals/me',{headers:hOwner})).body.deals,[],
+    'completed orders belong only to the claim queue, not active order list');
+  assert.deepEqual((await jsonRequest(testEnv,'/api/market/deals/me',{headers:hA})).body.my_bids,[],
+    'rejected bidders can still claim refunds without seeing obsolete bids');
   assert.equal(winnerMe.body.pending_deal_transfers.length,1);
   assert.equal(winnerMe.body.pending_deal_transfers[0].offer.coins,1000);
   assert.equal(winnerMe.body.pending_deal_transfers[0].offer.assets.length,2);
@@ -1665,6 +1669,14 @@ test('negotiated deal cancellation and bid withdrawal refund all sides without a
   assert.equal((await jsonRequest(testEnv,'/api/market/me',{headers:hOwner}))
     .body.pending_deal_transfers[0].offer.coins,33);
   assert.equal(testEnv.DB.db.prepare("SELECT COUNT(*) AS count FROM market_deal_transfers WHERE deal_id='withdraw:deal'").get().count,2);
+  const ownerOrders = await jsonRequest(testEnv,'/api/market/deals/me',{headers:hOwner});
+  const guestOrders = await jsonRequest(testEnv,'/api/market/deals/me',{headers:hBidder});
+  assert.equal(ownerOrders.response.status,200);
+  assert.deepEqual(ownerOrders.body.deals,[],'cancelled orders must not stay in My Orders');
+  assert.deepEqual(guestOrders.body.my_bids,[],'withdrawn bids must not stay in My Orders');
+  assert.equal(ownerOrders.body.pending_deal_transfers.length,1,'refunded assets remain claimable');
+  assert.equal(ownerOrders.body.pending_deal_transfers[0].offer.coins,33);
+  assert.equal(guestOrders.body.pending_deal_transfers.length,1,'withdrawn offer remains claimable');
   const after=await jsonRequest(testEnv,'/api/market/deals/withdraw%3Adeal/bids',
     {method:'POST',headers:hBidder,body:JSON.stringify({id:'withdraw:late',offer:{coins:1}})});
   assert.equal(after.response.status,409);
@@ -1690,6 +1702,8 @@ test('negotiated orders expire and every unaccepted offer becomes a persistent r
   const bidderMe=await jsonRequest(testEnv,'/api/market/me',{headers:hBidder});
   assert.equal(ownerMe.body.pending_deal_transfers[0].offer.coins,700);
   assert.equal(bidderMe.body.pending_deal_transfers[0].offer.coins,10);
+  assert.deepEqual((await jsonRequest(testEnv,'/api/market/deals/me',{headers:hOwner})).body.deals,[],
+    'expired orders are hidden while their return receipts remain available');
   assert.equal(testEnv.DB.db.prepare("SELECT status FROM market_deal_bids WHERE id='expire:bid'").get().status,'rejected');
 });
 

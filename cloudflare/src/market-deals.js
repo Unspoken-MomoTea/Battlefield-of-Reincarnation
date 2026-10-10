@@ -292,13 +292,17 @@ export async function settleExpiredMarketDeals(env,{limit=100}={}) {
   return {expired:rows.length};
 }
 export async function getMarketDealState(env,user) {
+  // Orders is an active board, not a three-day transaction history. Settle
+  // expirations first so their assets remain available in the claim queue.
+  await settleExpiredMarketDeals(env);
+  const timestamp=now();
   const [mine,participating,transfers]=await Promise.all([
     all(env,dealSelect+
-      ' WHERE d.owner_user_id=? AND d.owner_save_id=? AND (d.status=\'active\' OR d.updated_at>?) ORDER BY d.created_at DESC LIMIT 100',
-      user.id,user.market_save_id,now()-3*86400000),
+      ' WHERE d.owner_user_id=? AND d.owner_save_id=? AND d.status=\'active\' AND d.expires_at>? ORDER BY d.created_at DESC LIMIT 100',
+      user.id,user.market_save_id,timestamp),
     all(env, bidSelect +
-      ' WHERE b.bidder_user_id=? AND b.bidder_save_id=? AND (b.status=\'pending\' OR b.updated_at>?) ORDER BY b.created_at DESC LIMIT 100',
-      user.id,user.market_save_id,now()-3*86400000),
+      ' JOIN market_deals d ON d.id=b.deal_id WHERE b.bidder_user_id=? AND b.bidder_save_id=? AND b.status=\'pending\' AND d.status=\'active\' AND d.expires_at>? ORDER BY b.created_at DESC LIMIT 100',
+      user.id,user.market_save_id,timestamp),
     all(env,sql('SELECT * FROM market_deal_transfers',
       'WHERE user_id=? AND save_id=? AND confirmed_at IS NULL ORDER BY created_at ASC LIMIT 200'),
       user.id,user.market_save_id),

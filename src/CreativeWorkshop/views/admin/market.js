@@ -81,7 +81,7 @@ export function createAdminMarketView({
       node.append(
         cell(item.title,item.wanted,'rw-admin-market-item'),
         cell(assets.join(' + ')||'未提供筹码','托管资产及空间币'),
-        cell(statusName(item.status),'收到 '+Number(item.bid_count||0)+' 份待审报价'),
+        cell(item.status==='active'?'进行中':statusName(item.status),'收到 '+Number(item.bid_count||0)+' 份待审报价'),
         cell(item.owner?.display_name||'—'),
         cell(when(item.created_at),'到期 '+when(item.expires_at)),
       );

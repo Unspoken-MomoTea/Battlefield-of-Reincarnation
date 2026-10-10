@@ -7,10 +7,10 @@ export const MARKET_CSS = `
 .rw-ah-kicker{display:flex;align-items:center;gap:4px;color:#d9b35f;font-size:11px;font-weight:900;letter-spacing:.14em}
 .rw-ah-title h2{margin:4px 0 3px;font-size:24px}
 .rw-ah-title p{margin:0;max-width:680px;color:var(--ah-muted);font-size:12px;line-height:1.45}
-.rw-ah-account-strip{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
-.rw-ah-account-cell{display:flex;flex-direction:column;gap:2px;min-width:82px;padding:7px 9px;border:1px solid var(--ah-line);border-radius:8px;background:rgba(0,0,0,.14)}
+.rw-ah-account-strip{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;min-width:0;max-width:100%}
+.rw-ah-account-cell{display:flex;flex-direction:column;gap:2px;box-sizing:border-box;min-width:82px;max-width:100%;padding:7px 9px;border:1px solid var(--ah-line);border-radius:8px;background:rgba(0,0,0,.14)}
 .rw-ah-account-cell span{font-size:10px;color:var(--ah-muted);text-transform:uppercase;letter-spacing:.06em}
-.rw-ah-account-cell strong{font-size:13px;color:#e8ebf0}
+.rw-ah-account-cell strong{display:block;min-width:0;max-width:100%;font-size:13px;color:#e8ebf0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
 
 .rw-ah-tabs{display:flex;align-items:center;gap:2px;padding:0 10px;border:1px solid var(--ah-line);border-bottom-color:rgba(255,255,255,.13);background:rgba(0,0,0,.18)}
 .rw-ah-tab{position:relative;padding:10px 16px;border:0;background:transparent;color:#aeb6c2;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
@@ -279,14 +279,22 @@ export const MARKET_CSS = `
   .rw-ah-sell-layout{grid-template-columns:280px minmax(0,1fr)}
 }
 @media (max-width:850px){
-  .rw-ah-head{flex-direction:column}
-  .rw-ah-account-strip{justify-content:flex-start}
+  .rw-ah-head{flex-direction:column;min-width:0}
+  .rw-ah-account-strip{justify-content:flex-start;width:100%}
   .rw-ah-browser{grid-template-columns:130px minmax(300px,1fr)}
   .rw-ah-inspector{grid-column:1/-1;border-top:1px solid var(--ah-line);min-height:260px}
   .rw-ah-results{border-right:0}
 }
 @media (max-width:650px){
-  .rw-ah-tabs{overflow:auto}
+  /* Two predictable rows keep an arbitrarily long wallet balance from
+     deciding card widths or pushing the trade navigation off-screen. */
+  .rw-ah-account-strip{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch;gap:8px}
+  .rw-ah-account-cell{min-width:0;width:100%;max-width:100%}
+  .rw-ah-account-cell strong{min-width:0;max-width:100%;overflow-wrap:anywhere;word-break:break-word;line-height:1.35}
+  /* Keep all four market modes independent from the flexible account cards. */
+  .rw-ah-tabs{box-sizing:border-box;flex:0 0 auto;min-width:0;width:100%;justify-content:space-between;gap:0;overflow-x:auto;overflow-y:hidden;white-space:nowrap}
+  .rw-ah-tabs .rw-ah-tab{flex:0 0 auto;min-width:0;min-height:44px;padding:10px 8px;white-space:nowrap}
+  .rw-ah-tab-spacer{display:none}
   .rw-ah-region-note{display:none}
   .rw-ah-toolbar{align-items:stretch;flex-wrap:wrap}
   .rw-ah-search{flex-basis:100%}

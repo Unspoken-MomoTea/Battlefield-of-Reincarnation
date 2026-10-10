@@ -54,6 +54,7 @@ class Node {
     return visit(this);
   }
   click() { return this.listeners.get('click')?.(); }
+  get options() { return this.children.filter(child => child?.tag === 'option'); }
 }
 
 const element = (tag, classes, text) => new Node(tag, classes, text);
@@ -166,4 +167,132 @@ test('sell quota shows only the current save listing count without an empty warn
   assert.equal(slots.textContent, '在售挂单 0 / 10');
   assert.equal(editor.querySelectorAll('.rw-market-notice')
     .find(node => node.textContent === '')?.hidden, true);
+});
+
+test('category switch requests the right kind and ignores previous-category subtype selections', async () => {
+  const nodes = {
+    marketModes: [], marketPanels: [],
+    marketCategories: ['','equipment','item','skill'].map(kind => {
+      const node = new Node('button');
+      node.dataset.marketKind = kind;
+      return node;
+    }),
+    marketSubtype: new Node('select'),
+    marketList: new Node(), marketCount: new Node(),
+    marketSummary: new Node(), marketInspector: new Node(),
+  };
+  const requests = [];
+  const items = [
+    {key:'catalog:skill:flash',kind:'skill',name:'闪电术',quality:'F',subtype:'法术',
+      lowest_price:10,total_stock:1,listing_count:1,seller_count:1,asset:{kind:'skill',name:'闪电术',data:{品质:'F'}}},
+    {key:'catalog:item:herb',kind:'item',name:'草药',quality:'F',subtype:'材料',
+      lowest_price:20,total_stock:1,listing_count:1,seller_count:1,asset:{kind:'item',name:'草药',data:{品质:'F'}}},
+    {key:'catalog:equipment:armor',kind:'equipment',name:'铠甲',quality:'F',subtype:'护甲',
+      lowest_price:30,total_stock:1,listing_count:1,seller_count:1,asset:{kind:'equipment',name:'铠甲',data:{品质:'F'}}},
+  ];
+  const marketService = {
+    async catalog(filters) {
+      requests.push({...filters});
+      const matched=items.filter(item=>(!filters.kind||item.kind===filters.kind)
+        &&(!filters.subtype||item.subtype===filters.subtype));
+      return {items:matched,counts:{equipment:1,item:1,skill:1},
+        facets:{qualities:[{value:'F',count:3}],
+          subtypes:[...new Set(matched.map(item=>item.subtype))].map(value=>({value,count:1}))},
+        next_offset:null};
+    },
+    async inventory(){return {inHub:true,coin:0,canTrade:true};},
+    async catalogDetail(){return {catalog:null};},
+  };
+  const view=createMarketView({nodes,element,button,
+    empty:(target,message)=>target.replaceChildren(new Node('span','',message)),
+    notifyError:error=>{throw error;},confirmDialog:async()=>true,
+    host:{},marketService,getAuth:()=>({user:{id:1}})});
+  await view.refresh();
+  assert.equal(nodes.marketList.querySelectorAll('.rw-ah-result-row').length,3);
+  // A subtype that was valid under the old category must not hide the new one.
+  nodes.marketSubtype.value='法术';
+  nodes.marketCategories[2].click();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(requests.at(-1).kind,'item');
+  assert.equal(requests.at(-1).subtype,'');
+  assert.equal(nodes.marketList.querySelectorAll('.rw-ah-result-row').length,1);
+  nodes.marketCategories[1].click();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(requests.at(-1).kind,'equipment');
+  assert.equal(nodes.marketList.querySelectorAll('.rw-ah-result-row').length,1);
+  nodes.marketCategories[0].click();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(requests.at(-1).kind,'');
+  assert.equal(nodes.marketList.querySelectorAll('.rw-ah-result-row').length,3);
+});
+
+test('header refresh fetches active order board instead of unrelated product list', async () => {
+  const nodes = {
+    marketModes: [],marketPanels:[],marketCategories:[],
+    marketOrdersList:new Node(),marketOrdersEditor:new Node(),
+    marketOrderViews:[],marketOrderCreate:new Node(),marketOrderRefresh:new Node(),
+    marketSummary:new Node(),
+  };
+  let orderCalls=0,catalogCalls=0;
+  const service={
+    async listDeals(){orderCalls++;return {items:[],next_offset:null};},
+    async catalog(){catalogCalls++;return {items:[]};},
+    async inventory(){return {inHub:true,canTrade:true,coin:0};},
+  };
+  const view=createMarketView({nodes,element,button,
+    empty:(target,message)=>target.replaceChildren(new Node('span','',message)),
+    notifyError:error=>{throw error;},confirmDialog:async()=>false,
+    host:{},marketService:service,getAuth:()=>({user:{id:1}})});
+  await view.openOrders();
+  assert.equal(orderCalls,1);
+  await view.refresh();
+  assert.equal(orderCalls,2);
+  assert.equal(catalogCalls,0);
+});
+
+test('header refresh bypasses the personal auction cache instead of re-reading products', async () => {
+  const nodes={marketModes:[],marketPanels:[],marketCategories:[],
+    marketMineViews:[],marketMineContent:new Node(),marketSummary:new Node()};
+  let mineCalls=0,catalogCalls=0;
+  const service={
+    async mine(){mineCalls++;return {wallet:{balance:0},listings:[]};},
+    async catalog(){catalogCalls++;return {items:[]};},
+    async inventory(){return {inHub:true,canTrade:true,coin:0};},
+  };
+  const view=createMarketView({nodes,element,button,
+    empty:(target,message)=>target.replaceChildren(new Node('span','',message)),
+    notifyError:error=>{throw error;},confirmDialog:async()=>false,
+    host:{},marketService:service,getAuth:()=>({user:{id:1}})});
+  await view.openMine();
+  assert.equal(mineCalls,1);
+  await view.refresh();
+  assert.equal(mineCalls,2);
+  assert.equal(catalogCalls,0);
+});
+
+test('header refresh invalidates the visible commodity cache and reloads a changed listing', async () => {
+  const nodes={marketModes:[],marketPanels:[],marketCategories:[],
+    marketList:new Node(),marketCount:new Node(),marketSummary:new Node(),marketInspector:new Node()};
+  let calls=0;
+  const service={
+    async catalog(){
+      calls++;
+      return {items:[{key:'catalog:item:1',kind:'item',name:calls===1?'旧商品':'新商品',
+        quality:'F',lowest_price:1,total_stock:1,listing_count:1,seller_count:1,
+        asset:{kind:'item',name:calls===1?'旧商品':'新商品',data:{品质:'F'}}}],
+        counts:{item:1},facets:{qualities:[],subtypes:[]},next_offset:null};
+    },
+    async inventory(){return {inHub:true,canTrade:true,coin:0};},
+    async catalogDetail(){return {};},
+  };
+  const view=createMarketView({nodes,element,button,
+    empty:(target,message)=>target.replaceChildren(new Node('span','',message)),
+    notifyError:error=>{throw error;},confirmDialog:async()=>true,
+    host:{},marketService:service,getAuth:()=>({user:{id:1}})});
+  await view.refresh();
+  assert.equal(calls,1);
+  await view.refresh();
+  assert.equal(calls,2);
+  const row=nodes.marketList.querySelectorAll('.rw-ah-result-row')[0];
+  assert.equal(row.children[0].children[0].children[0].textContent,'新商品');
 });

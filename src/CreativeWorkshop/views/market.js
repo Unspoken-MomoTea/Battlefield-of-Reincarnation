@@ -54,7 +54,8 @@ export function createMarketView({
   let detailTimer = null;
   let selectedKey = '';
   let selectedDetail = null;
-  let loading = false;
+  let refreshPending = null;
+  let catalogLoadSerial = 0;
   let currentKind = '';
   let currentMode = 'browse';
   let currentMineView = 'active';
@@ -335,7 +336,7 @@ export function createMarketView({
     if (mode !== 'browse') requireLogin();
     currentMode = mode;
     setModeVisuals();
-    if (mode === 'browse' && !browseStore.pageQuery(browseFilters()).loaded_at) await refresh();
+    if (mode === 'browse' && !browseStore.pageQuery(browseFilters()).loaded_at) await loadCatalog();
     if (mode === 'sell' && !browseStore.query().loaded_at) {
       void browseStore.ensureSnapshot().catch(() => {});
     }
@@ -370,9 +371,10 @@ export function createMarketView({
       options.push(option);
     }
     nodes.marketSubtype.replaceChildren(...options);
-    if ([...nodes.marketSubtype.options].some(option => option.value === selected)) {
-      nodes.marketSubtype.value = selected;
-    }
+    // Changing the kind can remove the previously selected subtype. Always
+    // leave the control in a valid state before any later filter snapshots.
+    nodes.marketSubtype.value = [...nodes.marketSubtype.options].some(option => option.value === selected)
+      ? selected : '';
   };
 
   const renderCategoryCounts = () => {
@@ -453,9 +455,12 @@ export function createMarketView({
 
   async function loadCatalog({ force = false } = {}) {
     const filters = browseFilters();
+    const serial = ++catalogLoadSerial;
     if (force) await browseStore.refreshPage(filters);
     else await browseStore.ensurePage(filters);
-
+    // Fast category switches may finish out of order: do not let an older
+    // response empty or overwrite the newly selected category.
+    if (serial !== catalogLoadSerial) return null;
     const result = browseStore.pageQuery(filters);
     catalogItems = result.items;
     catalogCounts = result.counts;
@@ -680,15 +685,31 @@ export function createMarketView({
   }
 
   async function refresh() {
-    if (loading) return;
-    loading = true;
-    try {
-      empty(nodes.marketList, '正在读取空间集市…');
-      selectedDetail = null;
-      await loadCatalog({ force: true });
+    // The header refresh must update the tab the player is actually viewing,
+    // instead of always refreshing an invisible product list.
+    if (refreshPending) await refreshPending;
+    const request = (async () => {
+      if (currentMode === 'browse') {
+        browseStore.invalidate();
+        selectedDetail = null;
+        empty(nodes.marketList, '正在读取空间集市…');
+        await loadCatalog({ force: true });
+      } else if (currentMode === 'orders') {
+        await dealView.render(true);
+      } else if (currentMode === 'mine') {
+        invalidateMineState();
+        await renderMineMode({ force: true });
+      } else if (currentMode === 'sell') {
+        invalidateMineState();
+        await renderSellMode();
+      }
       await refreshSummary();
+    })();
+    refreshPending = request;
+    try {
+      await request;
     } finally {
-      loading = false;
+      if (refreshPending === request) refreshPending = null;
     }
   }
 
@@ -1315,6 +1336,8 @@ export function createMarketView({
   for (const category of nodes.marketCategories || []) {
     category.addEventListener('click', () => {
       currentKind = category.dataset.marketKind || '';
+      // Subtypes belong to a category: reusing the previous category's value
+      // turns a valid set of listings into an apparently empty result.
       if (nodes.marketSubtype) nodes.marketSubtype.value = '';
       selectedKey = '';
       selectedDetail = null;

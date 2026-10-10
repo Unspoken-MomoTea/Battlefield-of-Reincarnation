@@ -46,7 +46,10 @@ export function bindWorkshopEvents({
           await activeView?.refresh?.();
         }
       }
-      try { host.toastr?.success?.('已重新读取工坊作品列表', '创意工坊'); } catch {}
+      try { host.toastr?.success?.(
+        activeTab === 'market' ? '已刷新当前空间集市页面' : '已重新读取当前工坊页面',
+        '创意工坊',
+      ); } catch {}
     } catch (error) {
       notifyError(error);
     } finally {

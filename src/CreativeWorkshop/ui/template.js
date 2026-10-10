@@ -15,7 +15,7 @@ export function workshopTemplate(version) {
         <button class="rw-button" data-action="search" type="button">搜索</button>
       </div>
       <div class="rw-head-actions">
-        <button class="rw-button" type="button" data-action="refresh-workshop" title="清除作品列表缓存并重新读取工坊">刷新</button>
+        <button class="rw-button" type="button" data-action="refresh-workshop" title="刷新当前页面数据">刷新</button>
         <button class="rw-button rw-maintenance-trigger" type="button" data-action="maintenance">修复</button>
         <span class="rw-health-chip" data-role="health" title="工坊服务状态">连接中</span>
         <div class="rw-version">v${version}</div>

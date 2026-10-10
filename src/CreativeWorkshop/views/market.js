@@ -162,6 +162,7 @@ export function createMarketView({
         chip.append(element('em', '', '×' + Number(item.quantity)));
       }
       if (!occupations && item.rawAttributes?.length) {
+        chip.classList.add('has-raw');
         chip.append(rawAttributeChips(item.rawAttributes));
       }
       wrap.append(chip);

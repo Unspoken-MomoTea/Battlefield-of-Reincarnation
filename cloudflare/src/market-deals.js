@@ -91,7 +91,7 @@ function pendingRefunds(env, dealId, timestamp) {
   return db(env, sql(
     'INSERT OR IGNORE INTO market_deal_transfers',
     '(id,deal_id,user_id,save_id,assets_json,coins,confirmed_at,created_at)',
-    'SELECT \'refund:\'||b.id,b.deal_id,b.bidder_user_id,b.bidder_save_id,',
+    'SELECT \'refund:bid:\'||b.id,b.deal_id,b.bidder_user_id,b.bidder_save_id,',
     'b.offer_assets_json,b.offer_coins,NULL,?',
     'FROM market_deal_bids b WHERE b.deal_id=?',
     'AND b.status IN (\'rejected\',\'withdrawn\')'
@@ -101,7 +101,7 @@ function ownerRefund(env, dealId, timestamp) {
   return db(env, sql(
     'INSERT OR IGNORE INTO market_deal_transfers',
     '(id,deal_id,user_id,save_id,assets_json,coins,confirmed_at,created_at)',
-    'SELECT \'refund:\'||id,id,owner_user_id,owner_save_id,offer_assets_json,',
+    'SELECT \'refund:owner:\'||id,id,owner_user_id,owner_save_id,offer_assets_json,',
     'offer_coins,NULL,? FROM market_deals',
     'WHERE id=? AND status IN (\'cancelled\',\'expired\')'
   ), timestamp, dealId);
@@ -125,23 +125,30 @@ async function mustBid(env, user, bidId) {
   return row;
 }
 export async function listMarketDeals(request, env) {
-  const mine = request.headers.get('X-Market-Save');
   const params = new URL(request.url).searchParams;
   const q = String(params.get('q') || '').trim().slice(0, 80);
-  const results = await all(env, dealSelect + sql(' WHERE d.status=\'active\' AND d.expires_at>?',
-    'AND (?=\'\' OR d.title LIKE ? OR d.wanted LIKE ?)',
-    'ORDER BY d.created_at DESC LIMIT 60'), now(), q, '%' + q + '%', '%' + q + '%');
-  return json({ items: results.map(decodeDeal) });
+  const limit = Math.max(1, Math.min(50, Number.parseInt(params.get('limit') || '50', 10) || 50));
+  const offset = Math.max(0, Math.min(100000, Number.parseInt(params.get('offset') || '0', 10) || 0));
+  const rows = await all(env, dealSelect + sql(
+    ' LEFT JOIN market_user_controls control ON control.user_id=d.owner_user_id',
+    "WHERE d.status='active' AND d.expires_at>? AND COALESCE(control.is_suspended,0)=0",
+    "AND (?='' OR d.title LIKE ? OR d.wanted LIKE ?)",
+    'ORDER BY d.created_at DESC, d.id DESC LIMIT ? OFFSET ?'
+  ), now(), q, '%' + q + '%', '%' + q + '%', limit + 1, offset);
+  return json({ items: rows.slice(0, limit).map(decodeDeal),
+    next_offset: rows.length > limit ? offset + limit : null });
 }
 export async function getMarketDeal(env, user, dealId) {
   const deal = await first(env, dealSelect + ' WHERE d.id=?', id(dealId));
   if (!deal) throw new HttpError(404, 'deal_not_found', '订单不存在');
   const owner = deal.owner_user_id === user.id && deal.owner_save_id === user.market_save_id;
+  // Pending bids should not be hidden behind older rejected offers.
   const bids = owner
-    ? await all(env, bidSelect + ' WHERE b.deal_id=? ORDER BY b.created_at DESC LIMIT 30',deal.id)
+    ? await all(env, bidSelect +
+        " WHERE b.deal_id=? ORDER BY CASE WHEN b.status='pending' THEN 0 ELSE 1 END, b.created_at DESC LIMIT 100", deal.id)
     : await all(env, bidSelect +
-       ' WHERE b.deal_id=? AND b.bidder_user_id=? AND b.bidder_save_id=? ORDER BY b.created_at DESC LIMIT 30',
-       deal.id,user.id,user.market_save_id);
+        ' WHERE b.deal_id=? AND b.bidder_user_id=? AND b.bidder_save_id=? ORDER BY b.created_at DESC LIMIT 100',
+        deal.id,user.id,user.market_save_id);
   return json({ deal: decodeDeal(deal), bids: bids.map(decodeBid), owner });
 }
 export async function createMarketDeal(request, env, user) {
@@ -160,11 +167,14 @@ export async function createMarketDeal(request, env, user) {
   const duration = number(body?.duration_hours || 24,72);
   if (!hours.has(duration)) throw new HttpError(400,'deal_duration','只允许24、48或72小时');
   const timestamp=now();
-  await db(env,sql('INSERT INTO market_deals',
+  const inserted = await db(env,sql('INSERT INTO market_deals',
     '(id,owner_user_id,owner_save_id,title,wanted,offer_assets_json,offer_coins,status,expires_at,created_at,updated_at)',
-    'VALUES (?,?,?,?,?,?,?,\'active\',?,?,?)'),
+    "SELECT ?,?,?,?,?,?,?,'active',?,?,?",
+    "WHERE (SELECT COUNT(*) FROM market_deals WHERE owner_user_id=? AND owner_save_id=? AND status='active' AND expires_at>?)<10"),
     dealId,user.id,user.market_save_id,title,wanted,JSON.stringify(offer.assets),offer.coins,
-    timestamp+duration*3600000,timestamp,timestamp).run();
+    timestamp+duration*3600000,timestamp,timestamp,user.id,user.market_save_id,timestamp).run();
+  if (!inserted.meta?.changes)
+    throw new HttpError(409,'deal_active_limit','每份存档最多可发布10条进行中的自由订单');
   return json({ deal:decodeDeal(await first(env,dealSelect+' WHERE d.id=?',dealId)) },201);
 }
 export async function submitMarketBid(request,env,user,dealIdValue) {
@@ -187,6 +197,7 @@ export async function submitMarketBid(request,env,user,dealIdValue) {
     '(id,deal_id,bidder_user_id,bidder_save_id,offer_assets_json,offer_coins,note,status,created_at,updated_at)',
     'SELECT ?,d.id,?,?,?, ?,?,\'pending\',?,? FROM market_deals d',
     'WHERE d.id=? AND d.status=\'active\' AND d.expires_at>? AND d.owner_user_id<>?',
+    'AND NOT EXISTS (SELECT 1 FROM market_user_controls c WHERE c.user_id=d.owner_user_id AND c.is_suspended=1)',
     'AND (SELECT COUNT(*) FROM market_deal_bids WHERE deal_id=d.id AND status=\'pending\')<20',
     'AND NOT EXISTS (SELECT 1 FROM market_deal_bids WHERE deal_id=d.id AND bidder_user_id=? AND status=\'pending\')'
   ),bidId,user.id,user.market_save_id,JSON.stringify(offer.assets),offer.coins,note,
@@ -196,7 +207,8 @@ export async function submitMarketBid(request,env,user,dealIdValue) {
   return json({bid:decodeBid(await first(env,bidSelect+' WHERE b.id=?',bidId))},201);
 }
 export async function decideMarketBid(env,user,dealIdValue,bidIdValue,accept) {
-  await assertMarketActive(env,user);
+  // Declining an offer releases escrow, including when trading is suspended.
+  if (accept) await assertMarketActive(env,user);
   const dealId=id(dealIdValue), bidId=id(bidIdValue);
   const owner=await mustOwn(env,user,dealId);
   const target=await first(env,'SELECT * FROM market_deal_bids WHERE id=? AND deal_id=?',bidId,dealId);
@@ -242,7 +254,7 @@ export async function decideMarketBid(env,user,dealIdValue,bidIdValue,accept) {
   return getMarketDeal(env,user,dealId);
 }
 export async function withdrawMarketBid(env,user,bidIdValue) {
-  await assertMarketActive(env,user);
+  // Withdrawal only returns escrow and stays available while suspended.
   const bid=await mustBid(env,user,bidIdValue);
   if (bid.status!=='pending') return json({bid:decodeBid(await first(env,bidSelect+' WHERE b.id=?',bid.id))});
   const timestamp=now();
@@ -257,7 +269,7 @@ export async function withdrawMarketBid(env,user,bidIdValue) {
   return json({bid:decodeBid(await first(env,bidSelect+' WHERE b.id=?',bid.id))});
 }
 export async function closeMarketDeal(env,user,dealIdValue) {
-  await assertMarketActive(env,user);
+  // Owner cancellation only returns escrow and stays available while suspended.
   const deal=await mustOwn(env,user,dealIdValue);
   if (deal.status!=='active') return getMarketDeal(env,user,deal.id);
   await cancelAndRefundDeal(env,deal.id);

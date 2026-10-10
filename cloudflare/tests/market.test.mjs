@@ -639,7 +639,7 @@ test('server catalog aggregates commodities without retaining trade histories', 
   assert.equal(Object.hasOwn(detail.body, 'history'), false);
 });
 
-test('buy orders escrow value, fill atomically, deliver to buyer and refund unused escrow', async () => {
+test.skip('buy orders escrow value, fill atomically, deliver to buyer and refund unused escrow (retired order engine)', async () => {
   const testEnv = env();
   const buyer = createUser(testEnv, '1100', 'Order Buyer');
   const seller = createUser(testEnv, '1101', 'Order Seller');
@@ -722,7 +722,7 @@ test('buy orders escrow value, fill atomically, deliver to buyer and refund unus
   assert.ok(buyerMe.body.pending_payouts.some(item => item.amount === 50));
 });
 
-test('asset swaps transfer both escrowed sides once and reject a second concurrent acceptor', async () => {
+test.skip('asset swaps transfer both escrowed sides once and reject a second concurrent acceptor (retired order engine)', async () => {
   const testEnv = env();
   const owner = createUser(testEnv, '1200', 'Swap Owner');
   const acceptor = createUser(testEnv, '1201', 'Swap Acceptor');
@@ -1070,7 +1070,7 @@ test('grouped purchase rejects stale total without partial stock changes', async
 });
 
 
-test('market suspension hides active offers but still lets owners recover escrow', async () => {
+test.skip('market suspension hides active offers but still lets owners recover escrow (retired order engine)', async () => {
   const testEnv = env();
   const admin = createUser(testEnv, '1500', 'Suspension Admin');
   testEnv.DB.db.prepare('UPDATE users SET is_admin = 1 WHERE id = ?').run(admin.id);
@@ -1963,4 +1963,62 @@ test('legacy order retirement closes buy/swap test data with claimable refunds, 
   assert.equal(swapMe.body.pending_swap_transfers[0].asset.name,'旧药剂');
   assert.equal(testEnv.DB.db.prepare('SELECT COUNT(*) AS n FROM market_payouts').get().n,1);
   assert.equal(testEnv.DB.db.prepare('SELECT COUNT(*) AS n FROM market_swap_transfers').get().n,1);
+});
+
+test('retired legacy endpoints cannot create new orders',async()=>{
+  const e=env(),user=createUser(e,'blocked-old','旧版用户'),headers=authHeaders(e,user,'blocked-old-session');
+  for(const endpoint of ['orders','swaps']){
+    assert.equal((await jsonRequest(e,'/api/market/'+endpoint)).response.status,410);
+    assert.equal((await jsonRequest(e,'/api/market/'+endpoint,
+      {method:'POST',headers,body:JSON.stringify({id:'old:offer'})})).response.status,410);
+  }
+  assert.equal(e.DB.db.prepare('SELECT COUNT(*) AS n FROM market_buy_orders').get().n,0);
+  assert.equal(e.DB.db.prepare('SELECT COUNT(*) AS n FROM market_swaps').get().n,0);
+});
+
+test('suspended free-trade owner is not visible and can refund existing escrow',async()=>{
+  const e=env(),admin=createUser(e,'deal-ban-admin','管理员'),
+    owner=createUser(e,'deal-ban-owner','发布者'),bidder=createUser(e,'deal-ban-bidder','报价者');
+  e.DB.db.prepare('UPDATE users SET is_admin=1 WHERE id=?').run(admin.id);
+  const a=authHeaders(e,admin,'deal-ban-admin-token'),o=authHeaders(e,owner,'deal-ban-owner-token'),
+    b=authHeaders(e,bidder,'deal-ban-bidder-token');
+  assert.equal((await jsonRequest(e,'/api/market/deals',{method:'POST',headers:o,
+    body:JSON.stringify({id:'freeze:deal',title:'冻结测试',wanted:'道具',offer:{coins:100}})})).response.status,201);
+  assert.equal((await jsonRequest(e,'/api/market/deals/freeze%3Adeal/bids',{method:'POST',headers:b,
+    body:JSON.stringify({id:'freeze:bid',offer:{coins:50}})})).response.status,201);
+  assert.equal((await jsonRequest(e,'/api/admin/market-users/'+owner.id+'/state',{
+    method:'POST',headers:a,body:JSON.stringify({suspended:true,note:'检查'} )})).response.status,200);
+  assert.equal((await jsonRequest(e,'/api/market/deals')).body.items.length,0);
+  assert.equal((await jsonRequest(e,'/api/market/deals/freeze%3Adeal/bids',{method:'POST',headers:b,
+    body:JSON.stringify({id:'freeze:newbid',offer:{coins:5}})})).response.status,409);
+  assert.equal((await jsonRequest(e,'/api/market/deals/freeze%3Adeal/cancel',{method:'POST',headers:o})).response.status,200);
+  assert.equal((await jsonRequest(e,'/api/market/me',{headers:o})).body.pending_deal_transfers[0].offer.coins,100);
+  assert.equal((await jsonRequest(e,'/api/market/me',{headers:b})).body.pending_deal_transfers[0].offer.coins,50);
+});
+
+test('negotiated orders have a ten-slot cap and a stable server-side 50-row paginator',async()=>{
+  const e=env(),user=createUser(e,'page-owner','发单者'),h=authHeaders(e,user,'page-owner-token');
+  for(let i=0;i<10;i++)
+    assert.equal((await jsonRequest(e,'/api/market/deals',{method:'POST',headers:h,
+      body:JSON.stringify({id:'page:order'+i,title:'订单'+i,wanted:'物品',offer:{coins:1}})})).response.status,201);
+  assert.equal((await jsonRequest(e,'/api/market/deals',{method:'POST',headers:h,
+    body:JSON.stringify({id:'page:over',title:'超额',wanted:'物品',offer:{coins:1}})})).response.status,409);
+  const first=(await jsonRequest(e,'/api/market/deals?limit=4')).body;
+  const next=(await jsonRequest(e,'/api/market/deals?limit=4&offset=4')).body;
+  assert.equal(first.next_offset,4);
+  assert.equal(first.items.length,4);
+  assert.equal(next.items.length,4);
+  assert.equal(new Set([...first.items,...next.items].map(x=>x.id)).size,8);
+});
+
+test('refund receipts distinguish owner id from bidder id even when identical',async()=>{
+  const e=env(),u=createUser(e,'same-owner','发单'),v=createUser(e,'same-bidder','报价');
+  const a=authHeaders(e,u,'same-owner-auth'),b=authHeaders(e,v,'same-bid-auth');
+  assert.equal((await jsonRequest(e,'/api/market/deals',{method:'POST',headers:a,
+    body:JSON.stringify({id:'shared:reference',title:'同名ID',wanted:'物品',offer:{coins:20}})})).response.status,201);
+  assert.equal((await jsonRequest(e,'/api/market/deals/shared%3Areference/bids',{method:'POST',headers:b,
+    body:JSON.stringify({id:'shared:reference',offer:{coins:10}})})).response.status,201);
+  assert.equal((await jsonRequest(e,'/api/market/deals/shared%3Areference/cancel',{method:'POST',headers:a})).response.status,200);
+  assert.deepEqual(e.DB.db.prepare('SELECT id FROM market_deal_transfers ORDER BY id').all().map(x=>x.id),
+    ['refund:bid:shared:reference','refund:owner:shared:reference']);
 });

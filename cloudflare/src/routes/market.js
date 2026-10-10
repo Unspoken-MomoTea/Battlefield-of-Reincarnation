@@ -104,18 +104,10 @@ export async function routeMarket(request, env, pathname) {
     await prepareMarketBrowse(env);
     return listMarketCatalog(request, env);
   }
-  if (request.method === 'GET' && pathname === '/api/market/orders') {
-    return listMarketBuyOrders(request, env);
-  }
-  if (request.method === 'POST' && pathname === '/api/market/orders') {
-    return createMarketBuyOrder(request, env, await marketUser(request, env));
-  }
-  if (request.method === 'GET' && pathname === '/api/market/swaps') {
-    return listMarketSwaps(request, env);
-  }
-  if (request.method === 'POST' && pathname === '/api/market/swaps') {
-    return createMarketSwap(request, env, await marketUser(request, env));
-  }
+  // The legacy order engines are retired; preserve only detail/cancel and
+  // transfer confirmations below so outstanding refunds can still be claimed.
+  if (['/api/market/orders', '/api/market/swaps'].includes(pathname))
+    throw new HttpError(410, 'market_legacy_orders_retired', '旧求购与交换已停用，请使用自由订单');
 
   if (request.method === 'GET' && pathname === '/api/market/listings') {
     return listMarketListings(request, env);
@@ -172,9 +164,8 @@ export async function routeMarket(request, env, pathname) {
     return getMarketBuyOrder(env, await marketUser(request, env), orderId);
   }
   const orderFillId = entityId(pathname, 'orders', 'fill');
-  if (request.method === 'POST' && orderFillId) {
-    return fillMarketBuyOrder(request, env, await marketUser(request, env), orderFillId);
-  }
+  if (request.method === 'POST' && orderFillId)
+    throw new HttpError(410, 'market_legacy_orders_retired', '旧求购撮合已停用');
   const orderCancelId = entityId(pathname, 'orders', 'cancel');
   if (request.method === 'POST' && orderCancelId) {
     return cancelMarketBuyOrder(env, await marketUser(request, env), orderCancelId);
@@ -189,9 +180,8 @@ export async function routeMarket(request, env, pathname) {
     return getMarketSwap(env, await marketUser(request, env), swapId);
   }
   const swapAcceptId = entityId(pathname, 'swaps', 'accept');
-  if (request.method === 'POST' && swapAcceptId) {
-    return acceptMarketSwap(request, env, await marketUser(request, env), swapAcceptId);
-  }
+  if (request.method === 'POST' && swapAcceptId)
+    throw new HttpError(410, 'market_legacy_orders_retired', '旧交换撮合已停用');
   const swapCancelId = entityId(pathname, 'swaps', 'cancel');
   if (request.method === 'POST' && swapCancelId) {
     return cancelMarketSwap(env, await marketUser(request, env), swapCancelId);

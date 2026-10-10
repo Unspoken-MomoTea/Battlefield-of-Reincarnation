@@ -377,6 +377,9 @@ export const MARKET_CSS = `
 .rw-ah-deal-asset-summary::-webkit-details-marker{color:#c9a255}
 .rw-ah-deal-asset-name{font-size:12px;color:#e3ebf5;overflow-wrap:anywhere;min-width:0}
 .rw-ah-deal-asset-meta{display:flex;flex:0 0 auto;gap:8px;font-size:12px;color:#d9bf81}
+.rw-ah-deal-kind{display:inline-flex;align-items:center;justify-content:center;padding:2px 7px;
+ border:1px solid rgba(103,166,236,.32);border-radius:5px;background:rgba(103,166,236,.09);
+ color:#a9d5ff;font-size:11px;font-weight:800;white-space:nowrap}
 .rw-ah-deal-asset-body{display:flex;flex-direction:column;gap:0;min-width:0;padding:4px 10px 10px;border-top:1px solid rgba(255,255,255,.07)}
 .rw-ah-deal-attr-row{display:grid;grid-template-columns:minmax(70px,28%) minmax(0,1fr);gap:12px;min-width:0;
  padding:9px 5px;border-bottom:1px solid rgba(255,255,255,.055);align-items:start}

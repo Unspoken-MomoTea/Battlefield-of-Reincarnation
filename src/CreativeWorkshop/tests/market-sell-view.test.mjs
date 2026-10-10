@@ -109,6 +109,10 @@ test('selling asset changes display immediately despite stalled market and walle
   const first = nodes.marketSellEditor.children[0];
   assert.equal(first.querySelector('h3'), null, 'sell details should not repeat the selected item name');
   assert.ok(first.querySelectorAll('.rw-ah-sell-form').length);
+  assert.equal(first.querySelectorAll('.rw-market-kind').length, 0, 'category tag repeats the inventory row');
+  assert.equal(first.querySelectorAll('.rw-market-quality').length, 0, 'quality tag repeats the asset data');
+  const warning = first.querySelectorAll('.rw-market-notice').find(node => node.textContent === '');
+  assert.equal(warning?.hidden, true, 'the blank yellow warning must be hidden');
   const qualityRow = first.querySelectorAll('.rw-ah-data-row')
     .find(row => row.children[0].textContent === '品质');
   assert.ok(qualityRow, 'asset data should retain a quality row');
@@ -124,4 +128,45 @@ test('selling asset changes display immediately despite stalled market and walle
   assert.equal(catalogRequests, 1, 'single background catalog warmup');
   assert.equal(mineRequests, 1, 'shared in-flight mine request');
   assert.equal(quoteRequests, 0, 'preview quotes are not fetched in the click handler');
+});
+
+test('sell quota makes cross-save listings explicit without an empty warning strip', async () => {
+  const nodes = {
+    marketModes: [], marketPanels: [], marketCategories: [],
+    marketSellList: new Node(), marketSellCount: new Node(),
+    marketSellEditor: new Node(), marketSummary: new Node(),
+  };
+  const asset = {
+    kind: 'item', key: '药剂', name: '药剂', quantity: 1, quality: 'E',
+    data: { 名称: '药剂', 数量: 1, 品质: 'E' },
+  };
+  const marketService = {
+    inventory: async () => ({ assets: [asset], inHub: true, coin: 1000 }),
+    mine: async () => ({
+      active_listing_count: 1, active_listing_save_count: 0,
+      active_listing_other_save_count: 1, active_listing_limit: 10,
+      listings: [], wallet: { balance: 0 },
+    }),
+    catalogSnapshot: async () => ({ items: [] }),
+    quoteAuction: () => new Promise(() => {}),
+    quoteBuyback: () => new Promise(() => {}),
+  };
+  const view = createMarketView({
+    nodes, element, button,
+    empty: (node, message) => node.replaceChildren(new Node('span', '', message)),
+    notifyError: error => { throw error; },
+    confirmDialog: async () => true, host: {}, marketService,
+    getAuth: () => ({ user: { id: 1 } }),
+  });
+  await view.openSell();
+  nodes.marketSellList.querySelectorAll('.rw-ah-inventory-row')[0].click();
+  await Promise.resolve();
+  await Promise.resolve();
+  const editor = nodes.marketSellEditor.children[0];
+  const slots = editor.querySelectorAll('.rw-ah-listing-slots')[0];
+  assert.match(slots.textContent, /账号在售 1 \/ 10/u);
+  assert.match(slots.textContent, /当前存档 0/u);
+  assert.match(slots.textContent, /其他存档 1/u);
+  assert.equal(editor.querySelectorAll('.rw-market-notice')
+    .find(node => node.textContent === '')?.hidden, true);
 });

@@ -8,6 +8,8 @@ export function createMarketDealView({nodes,element,button,empty,notifyError,con
   let selected='';
   let compose=false;
   let selectedDeal=null;
+  let pageOffset=0;
+  const PAGE_SIZE=50;
   const coin=value=>Math.max(0,Number(value)||0).toLocaleString('zh-CN');
   const act=fn=>async()=>{try{await fn()}catch(error){notifyError(error)}};
   const userId=()=>Number(getAuth()?.user?.id||0);
@@ -279,7 +281,7 @@ export function createMarketDealView({nodes,element,button,empty,notifyError,con
   }
   async function render(force=false){
     const mine=mode==='mine';
-    const state=mine?await marketService.myDeals():await marketService.listDeals();
+    const state=mine?await marketService.myDeals():await marketService.listDeals('',pageOffset,PAGE_SIZE);
     const deals=mine
       ? (state.deals||[]).filter(deal=>deal.status==='active' && Number(deal.expires_at||0)>Date.now())
       : state.items||[];
@@ -331,6 +333,17 @@ export function createMarketDealView({nodes,element,button,empty,notifyError,con
         list.append(row);
       }
     }
+    if(!mine && (pageOffset>0 || state.next_offset!=null)){
+      const pager=element('div','rw-ah-deal-pager');
+      if(pageOffset>0)pager.append(button('← 上一页','rw-button',act(async()=>{
+        pageOffset=Math.max(0,pageOffset-PAGE_SIZE);selected='';await render(true);
+      })));
+      pager.append(element('span','rw-ah-deal-page','第 '+(Math.floor(pageOffset/PAGE_SIZE)+1)+' 页 · 每页最多 50 条'));
+      if(state.next_offset!=null)pager.append(button('下一页 →','rw-button',act(async()=>{
+        pageOffset=Number(state.next_offset);selected='';await render(true);
+      })));
+      list.append(pager);
+    }
     nodes.marketOrdersList.replaceChildren(list);
     if(!compose){
       const target=deals.find(x=>x.id===selected)||deals[0];
@@ -346,7 +359,7 @@ export function createMarketDealView({nodes,element,button,empty,notifyError,con
     for(const tab of nodes.marketOrderViews||[]){
       tab.addEventListener('click',act(async()=>{
         mode=tab.dataset.marketOrderView==='mine'?'mine':'all';
-        selected='';compose=false;await render(true);
+        selected='';compose=false;pageOffset=0;await render(true);
       }));
     }
   }

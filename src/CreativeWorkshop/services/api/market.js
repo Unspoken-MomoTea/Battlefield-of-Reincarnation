@@ -97,8 +97,12 @@ export function createMarketApi(request) {
       );
     },
 
-    listDeals(query = '') {
-      return scopedRequest('/api/market/deals?q=' + encodeURIComponent(query), { cache: 'no-store' });
+    listDeals(query = '', offset = 0, limit = 50) {
+      const params = new URLSearchParams({
+        q: query, offset: String(Math.max(0, Number(offset) || 0)),
+        limit: String(Math.max(1, Math.min(50, Number(limit) || 50))),
+      });
+      return scopedRequest('/api/market/deals?' + params, { cache: 'no-store' });
     },
     myDeals() {
       return scopedRequest('/api/market/deals/me', { cache: 'no-store' }, true);

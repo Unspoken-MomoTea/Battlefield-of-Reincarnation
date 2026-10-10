@@ -657,7 +657,7 @@ export function createMarketService({ host, api }) {
     return result;
   }
 
-  async function listDeals(query='') { return api.listDeals(query); }
+  async function listDeals(query='',offset=0,limit=50) { return api.listDeals(query,offset,limit); }
   async function myDeals() { return api.myDeals(); }
   async function getDeal(id) { return api.getDeal(id); }
 

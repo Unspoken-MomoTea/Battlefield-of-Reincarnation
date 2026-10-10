@@ -16,6 +16,9 @@ export function createAdminMarketView({
   host,
   confirmDialog,
 }) {
+  const PAGE_SIZE = 50;
+  let pageOffset = 0;
+  let previousFilters = '';
   const userActions = (user, { allowRestore = false } = {}) => {
     const actions = [];
     if (!user?.id) return actions;
@@ -137,18 +140,32 @@ export function createAdminMarketView({
       const view=nodes.adminMarketView?.value||'listings';
       if(nodes.adminMarketRisk?.parentElement)
         nodes.adminMarketRisk.parentElement.hidden=view==='deals';
+      const query=nodes.adminMarketSearch?.value || '';
+      const status=nodes.adminMarketStatus?.value || '';
+      const risk=view==='listings' && Boolean(nodes.adminMarketRisk?.checked);
+      const filters=JSON.stringify([view,query,status,risk]);
+      if(filters!==previousFilters){pageOffset=0;previousFilters=filters;}
       const result = await workshopApi.listAdminMarket({
-        view,
-        query: nodes.adminMarketSearch?.value || '',
-        status: nodes.adminMarketStatus?.value || '',
-        risk: view==='listings' && Boolean(nodes.adminMarketRisk?.checked),
+        view, query, status, risk, offset:pageOffset,
       });
       const items = result?.items || [];
+      if(!items.length && pageOffset>0){
+        pageOffset=Math.max(0,pageOffset-PAGE_SIZE);
+        return refresh();
+      }
       if (!items.length) {
         empty(nodes.adminMarketList, '没有符合条件的市场记录');
         return;
       }
-      nodes.adminMarketList.replaceChildren(header(), ...items.map(row));
+      const pager=element('div','rw-admin-market-pager');
+      if(pageOffset>0)pager.append(button('← 上一页','rw-button',async()=>{
+        pageOffset=Math.max(0,pageOffset-PAGE_SIZE);await refresh();
+      }));
+      pager.append(element('span','rw-admin-market-page','第 '+(Math.floor(pageOffset/PAGE_SIZE)+1)+' 页 · 每页最多 50 条'));
+      if(result.next_offset!=null)pager.append(button('下一页 →','rw-button',async()=>{
+        pageOffset=Number(result.next_offset);await refresh();
+      }));
+      nodes.adminMarketList.replaceChildren(header(), ...items.map(row), pager);
     } catch (error) {
       empty(nodes.adminMarketList, '市场管理加载失败：' + error.message);
     }

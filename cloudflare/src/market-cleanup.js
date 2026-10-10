@@ -112,5 +112,15 @@ export async function cleanupCompletedMarketRecords(env, { limit = 200, now = Da
          AND NOT EXISTS (SELECT 1 FROM market_deal_bids b WHERE b.deal_id=d.id)
          AND NOT EXISTS (SELECT 1 FROM market_deal_transfers t WHERE t.deal_id=d.id)
        LIMIT ?)`, [cutoff,batch]);
+  // A zero-balance wallet is not a monetary receipt. Drop old empty save
+  // accounts, but keep unsettled payout owners as a conservative safeguard.
+  removed.emptySaveWallets = await prune(env, 'market_save_wallets',
+    `DELETE FROM market_save_wallets WHERE rowid IN (
+       SELECT w.rowid FROM market_save_wallets w
+       WHERE w.balance = 0 AND w.updated_at < ?
+         AND NOT EXISTS (
+           SELECT 1 FROM market_payouts p
+           WHERE p.user_id=w.user_id AND p.save_id=w.save_id AND p.confirmed_at IS NULL)
+       LIMIT ?)`, [cutoff, batch]);
   return removed;
 }

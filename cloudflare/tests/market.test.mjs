@@ -2069,3 +2069,21 @@ test('bidder can directly verify own bid receipt without relying on bounded orde
   assert.equal(own.body.bid.deal_id,'check:order');
   assert.equal((await jsonRequest(e,'/api/market/deal-bids/check%3Abid',{headers:hOwner})).response.status,404);
 });
+
+test('cleanup removes only stale empty save wallets, preserving nonzero balances and unsettled claims', async () => {
+  const testEnv=env();
+  const holder=createUser(testEnv,'wallet-cleanup-user','钱包清理用户');
+  const db=testEnv.DB.db, now=Date.now(),old=now-3*86400000;
+  for(const [save,balance,updated] of [
+    ['empty-old',0,old],['empty-recent',0,now],['balance-old',85,old],['payout-old',0,old],
+  ]){
+    db.prepare('INSERT INTO market_save_wallets (user_id,save_id,balance,updated_at) VALUES (?,?,?,?)')
+      .run(holder.id,save,balance,updated);
+  }
+  db.prepare('INSERT INTO market_payouts (id,user_id,save_id,amount,confirmed_at,created_at) VALUES (?,?,?,5,NULL,?)')
+    .run('wallet-cleanup-pending',holder.id,'payout-old',old);
+  const result=await cleanupCompletedMarketRecords(testEnv,{now});
+  assert.equal(result.emptySaveWallets,1);
+  assert.deepEqual(db.prepare('SELECT save_id FROM market_save_wallets ORDER BY save_id')
+    .all().map(x=>x.save_id),['balance-old','empty-recent','payout-old']);
+});

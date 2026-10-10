@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createMarketService, marketInventoryFromData, marketItemStorageSlot, appendMarketBroadcast, pruneAcknowledgedMarketReceipts } from '../services/market-service.js';
+import { createMarketService, marketInventoryFromData, canTradeInMarket, marketItemStorageSlot, appendMarketBroadcast, pruneAcknowledgedMarketReceipts } from '../services/market-service.js';
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -1133,4 +1133,84 @@ test('ambiguous escrow response retains locally deducted assets until remote can
   assert.equal((await service.reconcilePendingDealEscrow(pending[0].id)).status,'confirmed');
   assert.equal((await service.pendingLocalDealEscrows()).length,0);
   assert.equal(host.read().stat_data.角色.空间币,210,'confirmed remote escrow must not be refunded');
+});
+
+test('single-world market access matches status-bar shop and blocks combat in every mode', () => {
+  const base = { 系统状态: { 是否在主神空间: false, 是否战斗中: false }, 设置: { 单一世界: true }, 角色: { 空间币: 50 } };
+  assert.equal(canTradeInMarket(base), true);
+  assert.equal(marketInventoryFromData({ stat_data: base }).inHub, false);
+  assert.equal(marketInventoryFromData({ stat_data: base }).canTrade, true);
+  assert.equal(canTradeInMarket({ ...base, 系统状态: { 是否在主神空间: false, 是否战斗中: true } }), false);
+  assert.equal(canTradeInMarket({ ...base, 设置: { 单一世界: false } }), false);
+  assert.equal(canTradeInMarket({ ...base, 系统状态: { 是否在主神空间: true, 是否战斗中: false }, 设置: { 单一世界: false } }), true);
+  assert.equal(canTradeInMarket({ ...base, 系统状态: { 是否在主神空间: true, 是否战斗中: true }, 设置: { 单一世界: false } }), false);
+});
+
+test('single-world player outside the hub can list an item and submit a negotiated escrow', async () => {
+  const host = createHost({
+    系统状态: { 是否在主神空间: false, 是否战斗中: false },
+    设置: { 单一世界: true },
+    角色: { 空间币: 300, 道具: { 药剂: { 名称: '药剂', 品质: 'F', 数量: 4 } } },
+  });
+  const posted = [];
+  const service = createMarketService({ host, api: {
+    async quoteMarketAction() { return { quote: { listing_fee: 5 } }; },
+    async createMarketListing(payload) {
+      posted.push(['listing', clone(payload)]);
+      return { listing: { id: payload.id, asset: payload.asset, remaining_quantity: payload.asset.quantity } };
+    },
+    async createDeal(payload) {
+      posted.push(['deal', clone(payload)]);
+      return { deal: { id: payload.id } };
+    },
+  } });
+  await service.sell({ kind: 'item', key: '药剂', quantity: 2, unitPrice: 50 });
+  await service.createDeal({ title: '寻找材料', wanted: '金属', coins: 50,
+    selections: [{ kind: 'item', key: '药剂', quantity: 1 }] });
+  assert.deepEqual(posted.map(x => x[0]), ['listing', 'deal']);
+  assert.equal(host.read().stat_data.角色.空间币, 245);
+  assert.equal(host.read().stat_data.角色.道具.药剂.数量, 1);
+  assert.equal(posted[1][1].offer.assets[0].quantity, 1);
+});
+
+test('normal-world or combat cannot change assets through the market', async () => {
+  for (const [name, hub, singleWorld, combat] of [
+    ['ordinary mission', false, false, false],
+    ['single-world combat', false, true, true],
+    ['hub combat', true, false, true],
+  ]) {
+    const host = createHost({
+      系统状态: { 是否在主神空间: hub, 是否战斗中: combat },
+      设置: { 单一世界: singleWorld },
+      角色: { 空间币: 150, 道具: { 药剂: { 名称: '药剂', 数量: 2, 品质: 'F' } } },
+    });
+    let calls = 0;
+    const service = createMarketService({ host, api: {
+      async quoteMarketAction() { calls++; return { quote: { listing_fee: 1 } }; },
+      async createDeal() { calls++; return { deal: { id: 'should-not-run' } }; },
+    } });
+    await assert.rejects(service.sell({ kind: 'item', key: '药剂', quantity: 1, unitPrice: 50 }),
+      /非战斗状态/u, name);
+    await assert.rejects(service.createDeal({ title: '测试', wanted: '材料', coins: 10 }),
+      /非战斗状态/u, name);
+    assert.equal(calls, 0, name + ' must not reach the remote API');
+    assert.equal(host.read().stat_data.角色.空间币, 150);
+    assert.equal(host.read().stat_data.角色.道具.药剂.数量, 2);
+  }
+});
+
+test('single-world can claim escrow returned to its own save outside hub', async () => {
+  const host = createHost({
+    系统状态: { 是否在主神空间: false, 是否战斗中: false },
+    设置: { 单一世界: true },
+    角色: { 空间币: 5, 道具: {} },
+  });
+  let confirmed = 0;
+  const service = createMarketService({ host, api: { async confirmDealTransfer() { confirmed++; } } });
+  await service.receiveDealTransfer({ id: 'refund:single-world', offer: {
+    coins: 30, assets: [{ kind: 'item', name: '材料', quantity: 1, data: { 名称: '材料', 数量: 1, 品质: 'F' } }],
+  } });
+  assert.equal(host.read().stat_data.角色.空间币, 35);
+  assert.equal(host.read().stat_data.角色.道具.材料.数量, 1);
+  assert.equal(confirmed, 1);
 });

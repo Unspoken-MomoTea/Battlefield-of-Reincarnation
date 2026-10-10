@@ -698,7 +698,8 @@ export function createMarketView({
     try {
       const local = await marketService.inventory();
       cells.push(['空间币', coin(local.coin)]);
-      cells.push(['区域', local.inHub ? '主神空间' : '任务世界']);
+      cells.push(['区域', local.inHub ? '主神空间' : (local.isSingleWorld ? '单一世界' : '任务世界')]);
+      cells.push(['交易', local.canTrade ? '可交易' : '不可交易']);
     } catch {
       cells.push(['当前存档', '未读取']);
     }
@@ -843,11 +844,11 @@ export function createMarketView({
     }
     editor.append(referenceBox);
 
-    if (!sellInventory?.inHub) {
+    if (!sellInventory?.canTrade) {
       const block = element('div', 'rw-ah-blocked');
       block.append(
         element('strong', '', '当前只能浏览'),
-        element('span', '', '请回到主神空间后再上架资产。'),
+        element('span', '', '普通模式需回到主神空间；单一世界可在非战斗状态交易。'),
       );
       editor.append(block);
       nodes.marketSellEditor.replaceChildren(editor);
@@ -1084,7 +1085,7 @@ export function createMarketView({
     try {
       sellInventory = await marketService.inventory();
     } catch (error) {
-      sellInventory = { assets: [], inHub: false, coin: 0 };
+      sellInventory = { assets: [], inHub: false, isSingleWorld: false, canTrade: false, coin: 0 };
       empty(nodes.marketSellList, error.message || '无法读取当前存档');
       throw error;
     }

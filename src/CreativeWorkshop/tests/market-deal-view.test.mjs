@@ -54,7 +54,7 @@ test('public negotiated orders and private bids are presented under All/My tabs'
       }],
     };},
     async receiveDealTransfer(){claims++;},
-    async inventory(){return{inHub:true,coin:700,assets:[]};},
+    async inventory(){return{inHub:true,canTrade:true,coin:700,assets:[]};},
     async createDeal(){submitted++;},
   };
   const view=createMarketDealView({
@@ -148,7 +148,7 @@ test('order picker has labeled asset selection, quantity, useful placeholders an
     marketOrdersList:new Node(),marketOrdersEditor:new Node(),
   };
   const service={
-    async inventory(){return {inHub:true,coin:900,assets:[{
+    async inventory(){return {inHub:true,canTrade:true,coin:900,assets:[{
       kind:'item',key:'药剂',name:'恢复药剂',quantity:3,
       quality:'E',data:{名称:'恢复药剂',品质:'E'},
     }]};},
@@ -285,4 +285,25 @@ test('public orders load the next 50-item page only on explicit navigation',asyn
   await next.click();
   assert.deepEqual(calls,[{query:'',offset:0,limit:50},{query:'',offset:50,limit:50}]);
   assert.match(allText(nodes.marketOrdersList),/第 2 页/u);
+});
+
+test('single-world order composer is available outside the hub when market inventory permits trading',async()=>{
+  const nodes={
+    marketOrderViews:[],marketOrderCreate:new Node('button'),
+    marketSwapCreate:new Node('button'),marketOrderRefresh:new Node('button'),
+    marketOrderExamples:new Node('button'),
+    marketOrdersList:new Node(),marketOrdersEditor:new Node(),
+  };
+  const marketService={
+    async inventory(){return {inHub:false,isSingleWorld:true,canTrade:true,coin:300,assets:[]};},
+  };
+  const view=createMarketDealView({nodes,element,button,
+    empty:(target,text)=>target.replaceChildren(new Node('p','',text)),
+    notifyError:error=>{throw error;},confirmDialog:async()=>false,
+    marketService,getAuth:()=>({user:{id:3}})});
+  view.bind();
+  nodes.marketOrderCreate.click();
+  await flush();
+  assert.match(allText(nodes.marketOrdersEditor),/发布自由交易订单/u);
+  assert.ok(walk(nodes.marketOrdersEditor,node=>node.tag==='textarea').length);
 });

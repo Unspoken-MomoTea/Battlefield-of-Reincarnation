@@ -59,9 +59,17 @@ function assertCurrentSave(host, expectedSaveId) {
   }
 }
 
-function assertHub(statData) {
-  if (statData?.系统状态?.是否在主神空间 !== true) {
-    throw new Error('空间集市只允许在主神空间执行上架、购买与领取操作');
+// Match the status-bar shop: single-world runs have no mandatory return hub,
+// but neither mode allows inventory-changing transactions during combat.
+export function canTradeInMarket(statData) {
+  return statData?.系统状态?.是否战斗中 !== true
+    && (statData?.系统状态?.是否在主神空间 === true
+      || statData?.设置?.单一世界 === true);
+}
+
+function assertMarketTradeAllowed(statData) {
+  if (!canTradeInMarket(statData)) {
+    throw new Error('空间集市交易需要处于非战斗状态：普通模式须返回主神空间，单一世界可直接交易');
   }
 }
 
@@ -292,6 +300,8 @@ export function marketInventoryFromData(data) {
 
   return {
     inHub: statData?.系统状态?.是否在主神空间 === true,
+    isSingleWorld: statData?.设置?.单一世界 === true,
+    canTrade: canTradeInMarket(statData),
     coin: Math.max(0, Number(character.空间币 || 0)),
     assets,
   };
@@ -643,14 +653,14 @@ export function createMarketService({ host, api }) {
 
   async function placeDealEscrow(selections, coins, createRemote, lookupRemote, receiptId, receiptLabel, remoteRef) {
     const snapshot = readLatest(host);
-    assertHub(snapshot.data.stat_data);
+    assertMarketTradeAllowed(snapshot.data.stat_data);
     const selected = validateSelections(selections);
     const amount = escrowCoinValue(coins);
     if (!selected.length && !amount) throw new Error('必须提供至少一种资产或空间币');
     const savedForms = selected.map(item => formActivationSnapshot(snapshot.data.stat_data, item));
     const assets = [];
     await mutateLatest(host, next => {
-      assertHub(next.stat_data);
+      assertMarketTradeAllowed(next.stat_data);
       const pending = ledgerBucket(next,'pendingDealEscrows');
       if (Object.keys(pending).length >= 10) throw new Error('有太多待核对托管，请先到「我的 → 待领取／待恢复」核对');
       const current = Number(next.stat_data.角色.空间币 || 0);
@@ -718,7 +728,7 @@ export function createMarketService({ host, api }) {
 
   async function reconcilePendingDealEscrow(receiptId) {
     const snapshot=readLatest(host);
-    assertHub(snapshot.data.stat_data);
+    assertMarketTradeAllowed(snapshot.data.stat_data);
     const pending=snapshot.data.__reincarnationMarketLedger?.pendingDealEscrows?.[receiptId];
     if (!pending) throw new Error('该笔待核对托管已完成，请刷新待恢复列表');
     let matched=false;
@@ -785,17 +795,17 @@ export function createMarketService({ host, api }) {
   }
   async function decideDealBid(dealId,bidId,accepted) {
     const snapshot=readLatest(host);
-    assertHub(snapshot.data.stat_data);
+    assertMarketTradeAllowed(snapshot.data.stat_data);
     return api.decideDealBid(dealId,bidId,Boolean(accepted));
   }
   async function cancelDeal(dealId) {
     const snapshot=readLatest(host);
-    assertHub(snapshot.data.stat_data);
+    assertMarketTradeAllowed(snapshot.data.stat_data);
     return api.cancelDeal(dealId);
   }
   async function withdrawDealBid(bidId) {
     const snapshot=readLatest(host);
-    assertHub(snapshot.data.stat_data);
+    assertMarketTradeAllowed(snapshot.data.stat_data);
     return api.withdrawDealBid(bidId);
   }
   async function receiveDealTransfer(transfer) {
@@ -804,7 +814,7 @@ export function createMarketService({ host, api }) {
     if (transfer.save_id && transfer.save_id !== saveId)
       throw new Error('这笔订单属于另一个存档，请切换回原存档领取');
     await mutateLatest(host,next=>{
-      assertHub(next.stat_data);
+      assertMarketTradeAllowed(next.stat_data);
       const received=ledgerBucket(next,'dealTransfers');
       if (received[transfer.id]) return;
       const assets=transfer.offer?.assets || [];
@@ -853,7 +863,7 @@ export function createMarketService({ host, api }) {
   async function sell(selection) {
     const snapshot = readLatest(host);
     const mutateBound = mutator => mutateLatest(host, mutator, snapshot.saveId);
-    assertHub(snapshot.data.stat_data);
+    assertMarketTradeAllowed(snapshot.data.stat_data);
 
     const activeFormSnapshot = formActivationSnapshot(snapshot.data.stat_data, selection);
     const located = findAsset(snapshot.data.stat_data, selection.kind, selection.key);
@@ -880,7 +890,7 @@ export function createMarketService({ host, api }) {
     const listingId = randomId(host, 'listing');
     let removed;
     await mutateBound(next => {
-      assertHub(next.stat_data);
+      assertMarketTradeAllowed(next.stat_data);
       const currentCoin = Number(next.stat_data.角色.空间币 || 0);
       if (currentCoin < listingFee) throw new Error('空间币不足，无法支付上架税');
       removed = removeAsset(next.stat_data, {
@@ -939,7 +949,7 @@ export function createMarketService({ host, api }) {
   async function sellToSystem(selection) {
     const snapshot = readLatest(host);
     const mutateBound = mutator => mutateLatest(host, mutator, snapshot.saveId);
-    assertHub(snapshot.data.stat_data);
+    assertMarketTradeAllowed(snapshot.data.stat_data);
 
     const activeFormSnapshot = formActivationSnapshot(snapshot.data.stat_data, selection);
     const located = findAsset(snapshot.data.stat_data, selection.kind, selection.key);
@@ -959,7 +969,7 @@ export function createMarketService({ host, api }) {
     const buybackId = randomId(host, 'buyback');
 
     await mutateBound(next => {
-      assertHub(next.stat_data);
+      assertMarketTradeAllowed(next.stat_data);
       removeAsset(next.stat_data, {
         kind: selection.kind,
         key: selection.key,
@@ -1003,7 +1013,7 @@ export function createMarketService({ host, api }) {
   }) {
     const snapshot = readLatest(host);
     const mutateBound = mutator => mutateLatest(host, mutator, snapshot.saveId);
-    assertHub(snapshot.data.stat_data);
+    assertMarketTradeAllowed(snapshot.data.stat_data);
     const resolvedQuantity = kind === 'item'
       ? Math.max(1, Math.floor(Number(quantity) || 1))
       : 1;
@@ -1015,7 +1025,7 @@ export function createMarketService({ host, api }) {
 
     const id = randomId(host, 'order');
     await mutateBound(next => {
-      assertHub(next.stat_data);
+      assertMarketTradeAllowed(next.stat_data);
       const current = Number(next.stat_data.角色.空间币 || 0);
       if (current < total) throw new Error('空间币不足');
       next.stat_data.角色.空间币 = current - total;
@@ -1053,7 +1063,7 @@ export function createMarketService({ host, api }) {
   async function fillBuyOrder(order, selection) {
     const snapshot = readLatest(host);
     const mutateBound = mutator => mutateLatest(host, mutator, snapshot.saveId);
-    assertHub(snapshot.data.stat_data);
+    assertMarketTradeAllowed(snapshot.data.stat_data);
     const located = findAsset(snapshot.data.stat_data, selection.kind, selection.key);
     const available = assetQuantity(selection.kind, located.value);
     const requested = selection.kind === 'item'
@@ -1107,7 +1117,7 @@ export function createMarketService({ host, api }) {
 
   async function cancelBuyOrder(orderId) {
     const snapshot = readLatest(host);
-    assertHub(snapshot.data.stat_data);
+    assertMarketTradeAllowed(snapshot.data.stat_data);
     const result = await api.cancelMarketBuyOrder(orderId);
     // Canceling an order changes remote state only; receiving its refund
     // separately writes MVU and produces the single relevant receipt.
@@ -1123,7 +1133,7 @@ export function createMarketService({ host, api }) {
     }
     const mutateBound = mutator => mutateLatest(host, mutator, receiptSaveId);
     await mutateBound(next => {
-      assertHub(next.stat_data);
+      assertMarketTradeAllowed(next.stat_data);
       const deliveries = ledgerBucket(next, 'orderDeliveries');
       if (deliveries[fill.id]) return;
       if (collisionFor(next.stat_data, fill.asset)) {
@@ -1147,7 +1157,7 @@ export function createMarketService({ host, api }) {
   }) {
     const snapshot = readLatest(host);
     const mutateBound = mutator => mutateLatest(host, mutator, snapshot.saveId);
-    assertHub(snapshot.data.stat_data);
+    assertMarketTradeAllowed(snapshot.data.stat_data);
     const located = findAsset(snapshot.data.stat_data, offered.kind, offered.key);
     const available = assetQuantity(offered.kind, located.value);
     const offeredQuantity = offered.kind === 'item'
@@ -1195,7 +1205,7 @@ export function createMarketService({ host, api }) {
   async function acceptSwap(swap, selection) {
     const snapshot = readLatest(host);
     const mutateBound = mutator => mutateLatest(host, mutator, snapshot.saveId);
-    assertHub(snapshot.data.stat_data);
+    assertMarketTradeAllowed(snapshot.data.stat_data);
     const located = findAsset(snapshot.data.stat_data, selection.kind, selection.key);
     const available = assetQuantity(selection.kind, located.value);
     const requested = selection.kind === 'item'
@@ -1244,7 +1254,7 @@ export function createMarketService({ host, api }) {
 
   async function cancelSwap(swapId) {
     const snapshot = readLatest(host);
-    assertHub(snapshot.data.stat_data);
+    assertMarketTradeAllowed(snapshot.data.stat_data);
     // The remote cancellation itself does not change MVU. Any returned
     // assets are announced by receiveSwapTransfer when actually written back.
     return api.cancelMarketSwap(swapId);
@@ -1258,7 +1268,7 @@ export function createMarketService({ host, api }) {
     }
     const mutateBound = mutator => mutateLatest(host, mutator, receiptSaveId);
     await mutateBound(next => {
-      assertHub(next.stat_data);
+      assertMarketTradeAllowed(next.stat_data);
       const transfers = ledgerBucket(next, 'swapTransfers');
       if (transfers[transfer.id]) return;
       if (collisionFor(next.stat_data, transfer.asset)) {
@@ -1282,7 +1292,7 @@ export function createMarketService({ host, api }) {
     }
     const mutateBound = mutator => mutateLatest(host, mutator, receiptSaveId);
     await mutateBound(next => {
-      assertHub(next.stat_data);
+      assertMarketTradeAllowed(next.stat_data);
       const deliveries = ledgerBucket(next, 'deliveries');
       if (deliveries[trade.id]) return;
       if (collisionFor(next.stat_data, trade.asset)) {
@@ -1307,7 +1317,7 @@ export function createMarketService({ host, api }) {
   async function buyCatalog(catalogItem, quantity = 1, suppliedQuote = null) {
     const snapshot = readLatest(host);
     const mutateBound = mutator => mutateLatest(host, mutator, snapshot.saveId);
-    assertHub(snapshot.data.stat_data);
+    assertMarketTradeAllowed(snapshot.data.stat_data);
 
     const catalogKey = String(catalogItem?.key || catalogItem?.catalog_key || '').trim();
     const asset = catalogItem?.asset;
@@ -1330,7 +1340,7 @@ export function createMarketService({ host, api }) {
 
     const purchaseId = randomId(host, 'purchase');
     await mutateBound(next => {
-      assertHub(next.stat_data);
+      assertMarketTradeAllowed(next.stat_data);
       const current = Number(next.stat_data.角色.空间币 || 0);
       if (current < total) throw new Error('空间币不足');
       next.stat_data.角色.空间币 = current - total;
@@ -1366,7 +1376,7 @@ export function createMarketService({ host, api }) {
   async function buy(listing, quantity = 1) {
     const snapshot = readLatest(host);
     const mutateBound = mutator => mutateLatest(host, mutator, snapshot.saveId);
-    assertHub(snapshot.data.stat_data);
+    assertMarketTradeAllowed(snapshot.data.stat_data);
     const resolvedQuantity = listing?.asset?.kind === 'item'
       ? Math.max(1, Math.floor(Number(quantity) || 1))
       : 1;
@@ -1379,7 +1389,7 @@ export function createMarketService({ host, api }) {
 
     const tradeId = randomId(host, 'trade');
     await mutateBound(next => {
-      assertHub(next.stat_data);
+      assertMarketTradeAllowed(next.stat_data);
       const current = Number(next.stat_data.角色.空间币 || 0);
       if (current < total) throw new Error('空间币不足');
       next.stat_data.角色.空间币 = current - total;
@@ -1412,7 +1422,7 @@ export function createMarketService({ host, api }) {
 
   async function cancel(listingId) {
     const snapshot = readLatest(host);
-    assertHub(snapshot.data.stat_data);
+    assertMarketTradeAllowed(snapshot.data.stat_data);
     const result = await api.cancelMarketListing(listingId);
     // Only the actual local return belongs in the narrative receipt.
     if (result?.return) await receiveReturn(result.return);
@@ -1427,7 +1437,7 @@ export function createMarketService({ host, api }) {
     }
     const mutateBound = mutator => mutateLatest(host, mutator, receiptSaveId);
     await mutateBound(next => {
-      assertHub(next.stat_data);
+      assertMarketTradeAllowed(next.stat_data);
       const returns = ledgerBucket(next, 'returns');
       if (returns[returnRecord.id]) return;
       if (collisionFor(next.stat_data, returnRecord.asset)) {
@@ -1451,7 +1461,7 @@ export function createMarketService({ host, api }) {
     }
     const mutateBound = mutator => mutateLatest(host, mutator, receiptSaveId);
     await mutateBound(next => {
-      assertHub(next.stat_data);
+      assertMarketTradeAllowed(next.stat_data);
       const payouts = ledgerBucket(next, 'payouts');
       if (payouts[payout.id]) return;
       next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0) + Number(payout.amount || 0);
@@ -1467,7 +1477,7 @@ export function createMarketService({ host, api }) {
 
   async function claimProceeds() {
     const snapshot = readLatest(host);
-    assertHub(snapshot.data.stat_data);
+    assertMarketTradeAllowed(snapshot.data.stat_data);
     const payoutId = randomId(host, 'payout');
     let payout;
     try {

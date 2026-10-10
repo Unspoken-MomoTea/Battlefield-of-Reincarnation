@@ -86,7 +86,7 @@ test('selling asset changes display immediately despite stalled market and walle
   }));
   const never = () => new Promise(() => {});
   const marketService = {
-    inventory: async () => ({ assets, inHub: true, coin: 500 }),
+    inventory: async () => ({ assets, inHub: true, canTrade: true, coin: 500 }),
     catalogSnapshot: () => { catalogRequests += 1; return never(); },
     catalog: () => { throw new Error('asset selection must not query market catalog'); },
     catalogDetail: () => never(),
@@ -141,7 +141,7 @@ test('sell quota shows only the current save listing count without an empty warn
     data: { 名称: '药剂', 数量: 1, 品质: 'E' },
   };
   const marketService = {
-    inventory: async () => ({ assets: [asset], inHub: true, coin: 1000 }),
+    inventory: async () => ({ assets: [asset], inHub: true, canTrade: true, coin: 1000 }),
     mine: async () => ({
       active_listing_count: 0, active_listing_limit: 10,
       listings: [], wallet: { balance: 0 },

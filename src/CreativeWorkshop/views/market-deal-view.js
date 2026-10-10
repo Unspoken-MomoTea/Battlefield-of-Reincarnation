@@ -176,7 +176,7 @@ export function createMarketDealView({nodes,element,button,empty,notifyError,con
   };
   async function renderCreate(deal=null){
     const inventory=await marketService.inventory();
-    if(!inventory.inHub)throw new Error('只有主神空间内才能发布或报价');
+    if(!inventory.canTrade)throw new Error('普通模式需回主神空间、单一世界需处于非战斗状态才能发布或报价');
     const editor=element('div','rw-ah-order-form');
     const isBid=Boolean(deal);
     editor.append(element('h3','',isBid?'向订单提出报价':'发布自由交易订单'),

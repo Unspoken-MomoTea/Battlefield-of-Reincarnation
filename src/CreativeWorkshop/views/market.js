@@ -1195,11 +1195,12 @@ export function createMarketView({
         .concat((state.pending_payouts || []).map(value => ({ type: 'payout', value })))
         .concat((state.pending_order_deliveries || []).map(value => ({ type: 'order', value })))
         .concat((state.pending_swap_transfers || []).map(value => ({ type: 'swap', value })))
-        .concat((state.pending_deal_transfers || []).map(value => ({ type: 'deal', value })));
+        .concat((state.pending_deal_transfers || []).map(value => ({ type: 'deal', value })))
+        .concat((state.pending_local_deal_escrows || []).map(value => ({ type: 'deal-check', value })));
       const recovery = section('待领取 / 待恢复', String(pending.length));
       if (!pending.length) recovery.append(element('div', 'rw-ah-muted-line', '没有待恢复事务。'));
       if (pending.length) {
-        recovery.append(button('全部领取', 'primary', async () => {
+        if(pending.some(entry=>entry.type!=='deal-check'))recovery.append(button('全部领取', 'primary', async () => {
           for (const entry of pending) {
             if (entry.type === 'trade') await marketService.deliverTrade(entry.value);
             else if (entry.type === 'return') await marketService.receiveReturn(entry.value);
@@ -1222,18 +1223,22 @@ export function createMarketView({
           order: '求购待领取',
           swap: '交换待领取',
           deal: '自由订单待领取／退还',
+          'deal-check': '托管状态待核对',
         }[entry.type];
         const offered = (value.offer?.assets || []).map(asset =>
           (asset.name || '资产') + ' ×' + (asset.quantity || 1)).join(' + ');
         const dealCoins = Number(value.offer?.coins || 0);
-        const assetName = entry.type === 'deal'
-          ? [offered,dealCoins ? coin(dealCoins)+' 空间币' : ''].filter(Boolean).join(' + ')
+        const assetName = entry.type === 'deal-check'
+          ? (value.description || value.dealId || '托管订单')
+          : entry.type === 'deal'
+            ? [offered,dealCoins ? coin(dealCoins)+' 空间币' : ''].filter(Boolean).join(' + ')
           : (value.asset?.name || (entry.type === 'payout' ? coin(value.amount) + ' 空间币' : '资产'));
         recovery.append(transactionRow(
           title + ' · ' + assetName + (value.asset ? ' ×' + (value.quantity || value.asset.quantity || 1) : ''),
           when(value.created_at),
-          [button('领取', 'primary', async () => {
-            if (entry.type === 'trade') await marketService.deliverTrade(value);
+          [button(entry.type==='deal-check'?'核对托管':'领取', 'primary', async () => {
+            if(entry.type==='deal-check')await marketService.reconcilePendingDealEscrow(value.id);
+            else if (entry.type === 'trade') await marketService.deliverTrade(value);
             else if (entry.type === 'return') await marketService.receiveReturn(value);
             else if (entry.type === 'payout') await marketService.receivePayout(value);
             else if (entry.type === 'order') await marketService.deliverOrderFill(value);

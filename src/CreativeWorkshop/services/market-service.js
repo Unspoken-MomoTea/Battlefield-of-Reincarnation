@@ -641,7 +641,7 @@ export function createMarketService({ host, api }) {
     return value;
   }
 
-  async function placeDealEscrow(selections, coins, createRemote, lookupRemote, receiptId, receiptLabel) {
+  async function placeDealEscrow(selections, coins, createRemote, lookupRemote, receiptId, receiptLabel, remoteRef) {
     const snapshot = readLatest(host);
     assertHub(snapshot.data.stat_data);
     const selected = validateSelections(selections);
@@ -651,6 +651,8 @@ export function createMarketService({ host, api }) {
     const assets = [];
     await mutateLatest(host, next => {
       assertHub(next.stat_data);
+      const pending = ledgerBucket(next,'pendingDealEscrows');
+      if (Object.keys(pending).length >= 10) throw new Error('有太多待核对托管，请先到「我的 → 待领取／待恢复」核对');
       const current = Number(next.stat_data.角色.空间币 || 0);
       if (current < amount) throw new Error('空间币余额不足');
       for (const selection of selected) {
@@ -663,29 +665,96 @@ export function createMarketService({ host, api }) {
         }));
       }
       next.stat_data.角色.空间币 = current - amount;
+      // Local escrow and recovery instructions are committed in the same MVU write.
+      // Network timeouts are not proof that the remote transaction failed.
+      pending[receiptId] = {
+        ...remoteRef, created_at:Date.now(), coins:amount,
+        assets:deepClone(assets), savedForms:deepClone(savedForms),
+        description:receiptLabel,
+      };
     }, snapshot.saveId);
     let result;
+    let failure;
     try {
-      assertCurrentSave(host, snapshot.saveId);
+      assertCurrentSave(host,snapshot.saveId);
       result = await createRemote({coins:amount, assets});
     } catch(error) {
+      failure=error;
       try { result = await lookupRemote(); } catch {}
-      if (!result) {
-        await mutateLatest(host, next => {
-          assertHub(next.stat_data);
+    }
+    if (!result && failure) {
+      const status = Number(failure?.status || 0);
+      // Only a definite HTTP rejection is safe to roll back immediately.
+      if (status >= 400 && status < 500 && status !== 408 && status !== 429) {
+        await mutateLatest(host,next=>{
+          const pending=ledgerBucket(next,'pendingDealEscrows');
+          if (!pending[receiptId]) return;
           for (let i=0;i<assets.length;i++) {
             addAsset(next.stat_data,assets[i]);
             restoreFormActivation(next.stat_data,savedForms[i]);
           }
-          next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0) + amount;
+          next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0)+amount;
+          delete pending[receiptId];
         },snapshot.saveId);
-        throw error;
+        throw failure;
       }
+      throw new Error('服务器交易结果尚未确认，资产已保留在本地待核对托管中，避免重复返还。请到「我的 → 待领取／待恢复」点击「核对托管」。原错误：'
+        +(failure.message||failure));
     }
-    await broadcast(snapshot.saveId,receiptId,
-      receiptLabel + '｜托管 ' + assets.map(a => receiptAsset(a)).join('、')
-      + (amount ? ' +' + coin(amount) : ''));
+    await mutateLatest(host,next=>{
+      delete ledgerBucket(next,'pendingDealEscrows')[receiptId];
+      appendMarketBroadcast(next,receiptId,
+        receiptLabel+'｜托管 '+assets.map(a=>receiptAsset(a)).join('、')
+        +(amount?' +'+coin(amount):''));
+    },snapshot.saveId);
     return result;
+  }
+
+  async function pendingLocalDealEscrows() {
+    const {data}=readLatest(host);
+    return Object.entries(data.__reincarnationMarketLedger?.pendingDealEscrows || {})
+      .map(([id,value])=>({id,...value}));
+  }
+
+  async function reconcilePendingDealEscrow(receiptId) {
+    const snapshot=readLatest(host);
+    assertHub(snapshot.data.stat_data);
+    const pending=snapshot.data.__reincarnationMarketLedger?.pendingDealEscrows?.[receiptId];
+    if (!pending) throw new Error('该笔待核对托管已完成，请刷新待恢复列表');
+    let matched=false;
+    try {
+      const remote=await api.getDeal(pending.dealId);
+      matched=pending.type==='deal'
+        ? Boolean(remote?.owner && remote?.deal?.id===pending.dealId)
+        : Boolean(remote?.bids?.some(bid=>bid.id===pending.bidId));
+    } catch(error) {
+      if (Number(error?.status)!==404) throw error;
+    }
+    if (matched) {
+      await mutateLatest(host,next=>{
+        const records=ledgerBucket(next,'pendingDealEscrows');
+        if (!records[receiptId]) return;
+        delete records[receiptId];
+        appendMarketBroadcast(next,receiptId,
+          pending.description+'｜托管 '+(pending.assets||[]).map(a=>receiptAsset(a)).join('、')
+          +(pending.coins?' +'+coin(pending.coins):''));
+      },snapshot.saveId);
+      return {status:'confirmed'};
+    }
+    if (Date.now()-Number(pending.created_at||0)<120000)
+      throw new Error('尚不能确认远端已完成处理。为避免重复资产，请在两分钟保护期结束后重新核对');
+    await mutateLatest(host,next=>{
+      const records=ledgerBucket(next,'pendingDealEscrows');
+      const entry=records[receiptId];
+      if(!entry)return;
+      for(let i=0;i<(entry.assets||[]).length;i++){
+        addAsset(next.stat_data,entry.assets[i]);
+        restoreFormActivation(next.stat_data,entry.savedForms?.[i]);
+      }
+      next.stat_data.角色.空间币=Number(next.stat_data.角色.空间币||0)+Number(entry.coins||0);
+      delete records[receiptId];
+    },snapshot.saveId);
+    return {status:'returned'};
   }
 
   async function listDeals(query='',offset=0,limit=50) { return api.listDeals(query,offset,limit); }
@@ -697,14 +766,16 @@ export function createMarketService({ host, api }) {
     return placeDealEscrow(selections, coins,
       offer=>api.createDeal({id:dealId,title,wanted,offer,duration_hours:durationHours}),
       async()=>{const found=await api.getDeal(dealId);return found?.owner?found:null;},
-      'deal-create:'+dealId,'[空间集市发布订单][角色] '+title);
+      'deal-create:'+dealId,'[空间集市发布订单][角色] '+title,
+      {type:'deal',dealId});
   }
   async function submitDealBid(dealId,{ selections=[],coins=0,note='' }) {
     const bidId=randomId(host,'dealbid');
     return placeDealEscrow(selections,coins,
       offer=>api.submitDealBid(dealId,{id:bidId,offer,note}),
       async()=>{const found=await api.getDeal(dealId);return found?.bids?.find(b=>b.id===bidId)?found:null;},
-      'deal-bid:'+bidId,'[空间集市提交报价][角色] 对订单 '+dealId+' 提供');
+      'deal-bid:'+bidId,'[空间集市提交报价][角色] 对订单 '+dealId+' 提供',
+      {type:'bid',dealId,bidId});
   }
   async function decideDealBid(dealId,bidId,accepted) {
     const snapshot=readLatest(host);
@@ -769,7 +840,8 @@ export function createMarketService({ host, api }) {
   // A market account read must never alter MVU or create narration receipts.
   // Only confirmed player-initiated local asset/coin mutations are narrated.
   async function mine() {
-    return api.getMarketMe();
+    const remote=await api.getMarketMe();
+    return { ...remote, pending_local_deal_escrows:await pendingLocalDealEscrows() };
   }
 
   async function sell(selection) {
@@ -1407,6 +1479,7 @@ export function createMarketService({ host, api }) {
   return {
     listDeals, myDeals, getDeal, createDeal, submitDealBid, decideDealBid,
     cancelDeal, withdrawDealBid, receiveDealTransfer,
+    pendingLocalDealEscrows, reconcilePendingDealEscrow,
     inventory,
     list,
     listAll,

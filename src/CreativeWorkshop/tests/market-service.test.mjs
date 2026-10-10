@@ -1046,19 +1046,19 @@ test('negotiated deal escrow withdraws multi-assets, credentials and coins from 
   assert.match(state.系统状态.待播报记录,/300空间币/u);
 });
 
-test('negotiated deal API errors restore deposited assets without a narration entry',async()=>{
+test('definitively rejected negotiated deals restore deposited assets without narration',async()=>{
   const host=createHost({
     系统状态:{是否在主神空间:true},
     角色:{空间币:300,道具:{材料:{名称:'材料',数量:2,品质:'F'}}},
   });
   const service=createMarketService({host,api:{
-    async createDeal(){throw new Error('server offline');},
-    async getDeal(){throw new Error('not found');},
+    async createDeal(){throw Object.assign(new Error('server rejected'),{status:409});},
+    async getDeal(){throw Object.assign(new Error('not found'),{status:404});},
   }});
   await assert.rejects(
     service.createDeal({title:'测试订单',wanted:'希望得到装备',coins:90,
       selections:[{kind:'item',key:'材料',quantity:2}]}),
-    /server offline/u,
+    /server rejected/u,
   );
   const state=host.read().stat_data;
   assert.equal(state.角色.空间币,300);
@@ -1108,4 +1108,29 @@ test('replay protection keeps pending receipts while bounding acknowledged MVU r
   assert.equal(Object.keys(data.__reincarnationMarketLedger.dealTransfers).length,512);
   assert.equal(data.__reincarnationMarketLedger.deliveries['retry:unconfirmed']>0,true);
   assert.equal(data.__reincarnationMarketLedger.dealTransfers['settled:599'].acknowledged,true);
+});
+
+test('ambiguous escrow response retains locally deducted assets until remote can be reconciled',async()=>{
+  const host=createHost({
+    系统状态:{是否在主神空间:true},
+    角色:{空间币:300,道具:{材料:{名称:'材料',数量:2,品质:'F'}}},
+  });
+  let reachable=false;
+  const service=createMarketService({host,api:{
+    async createDeal(){throw new Error('network interrupted');},
+    async getDeal(id){
+      if(!reachable)throw new Error('network interrupted');
+      return {owner:true,deal:{id}};
+    },
+  }});
+  await assert.rejects(service.createDeal({title:'求购物品',wanted:'材料',coins:90,
+    selections:[{kind:'item',key:'材料',quantity:2}]}),/待核对托管/u);
+  const pending=await service.pendingLocalDealEscrows();
+  assert.equal(pending.length,1);
+  assert.equal(host.read().stat_data.角色.空间币,210);
+  assert.equal(host.read().stat_data.角色.道具?.材料,undefined);
+  reachable=true;
+  assert.equal((await service.reconcilePendingDealEscrow(pending[0].id)).status,'confirmed');
+  assert.equal((await service.pendingLocalDealEscrows()).length,0);
+  assert.equal(host.read().stat_data.角色.空间币,210,'confirmed remote escrow must not be refunded');
 });

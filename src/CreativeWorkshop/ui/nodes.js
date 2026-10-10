@@ -45,6 +45,7 @@ export function collectWorkshopNodes(overlay) {
     marketOrderCreate: query('[data-action="market-order-create"]'),
     marketSwapCreate: query('[data-action="market-swap-create"]'),
     marketOrderRefresh: query('[data-action="market-order-refresh"]'),
+    marketOrderExamples: query('[data-action="market-order-examples"]'),
     marketOrdersList: query('[data-role="market-orders-list"]'),
     marketOrdersEditor: query('[data-role="market-orders-editor"]'),
     marketMineViews: queryAll('[data-market-mine-view]'),

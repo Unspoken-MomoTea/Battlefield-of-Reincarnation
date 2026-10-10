@@ -97,6 +97,40 @@ export function createMarketApi(request) {
       );
     },
 
+    listDeals(query = '') {
+      return scopedRequest('/api/market/deals?q=' + encodeURIComponent(query), { cache: 'no-store' });
+    },
+    myDeals() {
+      return scopedRequest('/api/market/deals/me', { cache: 'no-store' }, true);
+    },
+    getDeal(id) {
+      return scopedRequest('/api/market/deals/' + encodeURIComponent(id), { cache: 'no-store' }, true);
+    },
+    createDeal(input) {
+      return scopedRequest('/api/market/deals', { method: 'POST', body: JSON.stringify(input) }, true);
+    },
+    submitDealBid(id, input) {
+      return scopedRequest('/api/market/deals/' + encodeURIComponent(id) + '/bids',
+        { method: 'POST', body: JSON.stringify(input) }, true);
+    },
+    decideDealBid(id, bidId, accepted) {
+      return scopedRequest('/api/market/deals/' + encodeURIComponent(id) + '/bids/'
+        + encodeURIComponent(bidId) + (accepted ? '/accept' : '/reject'),
+        { method: 'POST' }, true);
+    },
+    withdrawDealBid(bidId) {
+      return scopedRequest('/api/market/deal-bids/' + encodeURIComponent(bidId) + '/withdraw',
+        { method: 'POST' }, true);
+    },
+    cancelDeal(id) {
+      return scopedRequest('/api/market/deals/' + encodeURIComponent(id) + '/cancel',
+        { method: 'POST' }, true);
+    },
+    confirmDealTransfer(id) {
+      return scopedRequest('/api/market/deal-transfers/' + encodeURIComponent(id) + '/confirmed',
+        { method: 'POST' }, true);
+    },
+
     listMarketBuyOrders({ query = '', kind = '', quality = '', offset = 0, limit = 40 } = {}) {
       const params = new URLSearchParams({
         offset: String(Math.max(0, Number(offset) || 0)),

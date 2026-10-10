@@ -1,7 +1,7 @@
 // Testing-channel only: illustrative proposals, NEVER inserted into D1 and
 // deliberately not accepted by any trading endpoint.
 const buyExamples = [
-  { id: 'demo:buy:healer', asset_kind: 'teammate', asset_name: '希望招募擅长治疗的伙伴，名称不限',
+  { id: 'demo:buy:healer', asset_kind: 'teammate', asset_name: '希望招募擅长治疗的伙伴（不限姓名）',
     quality: '', remaining_quantity: 1, unit_price: 2800, buyer: {display_name:'示例轮回者 · 青棠'},
     note: '可以是医生、炼金术士或治疗系魔法师。请提供实际角色资料，再由求购者确认。' },
   { id: 'demo:buy:skill', asset_kind: 'skill', asset_name: '寻找可抵挡精神侵蚀的能力',

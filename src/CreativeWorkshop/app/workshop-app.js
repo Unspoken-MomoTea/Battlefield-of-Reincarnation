@@ -81,6 +81,7 @@ export function bootWorkshop() {
     currentSha: CURRENT_SHA,
     hotUpdateClient: updateLoaderOnly,
     marketService,
+    marketPreviewExamples: marketEnabled,
     getAuth: () => auth,
   });
 

@@ -671,7 +671,7 @@ export function createMarketView({
         'small',
         'rw-ah-purchase-help',
         catalog.kind === 'item'
-          ? '按 WoW 商品撮合方式由服务器一次性从最低价开始成交；确认前若价格或库存变化会整笔取消并刷新。'
+          ? '确认前若价格或库存变化会整笔取消并刷新。'
           : '非堆叠资产购买当前最低价挂单。',
       ),
     );

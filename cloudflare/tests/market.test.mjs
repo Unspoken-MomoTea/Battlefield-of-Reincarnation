@@ -2113,3 +2113,63 @@ test('opening the same-day system voucher catalogue never rewrites unchanged ite
   assert.equal(db.prepare('SELECT updated_at FROM market_listings WHERE id=?').get(voucher.id).updated_at,voucher.updated_at);
   assert.equal(db.prepare('SELECT updated_at FROM users WHERE id=?').get(system.id).updated_at,system.updated_at);
 });
+
+test('retiring old F/E system vouchers keeps player listings and clears stale catalog stock', async () => {
+  const e=env();
+  assert.equal((await jsonRequest(e,'/api/market/listings')).response.status,200);
+  const db=e.DB.db;
+  const vendor=db.prepare("SELECT id FROM users WHERE discord_id='__market_system_vendor__'").get();
+  assert.ok(vendor?.id);
+  const keys={};
+  for(const grade of ['F','E']){
+    const name=grade+'级权限凭证';
+    const data={名称:name,品质:grade,类型:'权限凭证',数量:10,
+      标签:['主神空间','权限凭证'],描述:'悖论公证所系统柜台每日限量补货。'};
+    const metadata=marketCatalogMetadata({kind:'item',name,quantity:10,data});
+    keys[grade]=metadata.catalog_key;
+    db.prepare(`INSERT INTO market_listings
+      (id,seller_user_id,asset_kind,market_kind,asset_name,asset_json,unit_price,
+       total_quantity,remaining_quantity,status,duration_hours,expires_at,recycle_at,
+       listing_fee,is_system,restock_day,created_at,updated_at,catalog_key,quality,subtype)
+       VALUES (?,?,'item','item',?,?,?,10,10,'active',0,0,0,0,1,'2000-01-01',100,100,?,?,'权限凭证')`)
+      .run('system:credential:'+grade,vendor.id,name,JSON.stringify(data),grade==='F'?99:999,
+        metadata.catalog_key,grade);
+    await refreshMarketCatalogKey(e,metadata.catalog_key);
+  }
+  const owner=createUser(e,'credential-player-seller','玩家卖家');
+  const ownerHeaders=authHeaders(e,owner,'credential-player-seller-token');
+  const player=await jsonRequest(e,'/api/market/listings',{
+    method:'POST',headers:ownerHeaders,body:JSON.stringify({
+      id:'player-voucher-f',unit_price:49,duration_hours:24,
+      asset:{kind:'item',name:'F级权限凭证',quantity:1,
+        data:{名称:'F级权限凭证',品质:'F',类型:'权限凭证',数量:1,
+          标签:['主神空间','权限凭证'],描述:'悖论公证所系统柜台每日限量补货。'}},
+    }),
+  });
+  assert.equal(player.response.status,201);
+  assert.equal(player.body.listing.catalog_key,keys.F);
+  const fresh={...e,DB:new Proxy(e.DB,{})}; // trigger first browse in a new Worker isolate
+  const listingResponse=await jsonRequest(fresh,'/api/market/listings?limit=50');
+  assert.equal(listingResponse.response.status,200);
+  const listingIds=listingResponse.body.items.map(item=>item.id);
+  assert.ok(listingIds.includes('player-voucher-f'));
+  assert.ok(listingIds.includes('system:credential:D'));
+  for(const grade of ['F','E']){
+    assert.ok(!listingIds.includes('system:credential:'+grade));
+    const row=db.prepare('SELECT status,remaining_quantity FROM market_listings WHERE id=?')
+      .get('system:credential:'+grade);
+    assert.deepEqual([row.status,row.remaining_quantity],['cancelled',0]);
+  }
+  const catalog=(await jsonRequest(fresh,'/api/market/catalog?kind=item&limit=50')).body;
+  const fEntry=catalog.items.find(item=>item.key===keys.F);
+  assert.ok(fEntry,'player-owned F listing remains in the product catalog');
+  assert.equal(fEntry.total_stock,1,'system stock must be removed from player stock');
+  assert.ok(!catalog.items.some(item=>item.key===keys.E));
+  const buyer=createUser(fresh,'credential-retired-buyer','购买者');
+  const buyerHeaders=authHeaders(fresh,buyer,'credential-retired-buyer-token');
+  const attempt=await jsonRequest(fresh,'/api/market/listings/system%3Acredential%3AE/buy',{
+    method:'POST',headers:buyerHeaders,
+    body:JSON.stringify({trade_id:'legacy-e-bid',quantity:1}),
+  });
+  assert.equal(attempt.response.status,409,'old system listing must remain unavailable via direct URL');
+});

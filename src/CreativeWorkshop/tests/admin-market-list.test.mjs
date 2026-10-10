@@ -49,10 +49,10 @@ test('moderator Bazaar lists one full-width row per auction, not card grid',asyn
   await view.refresh();
   assert.equal(query.status,'active');
   const rows=nodes.adminMarketList.children;
-  assert.equal(rows.length,3,'single header followed by two rows');
+  assert.equal(rows.length,4,'single header, two rows, then pagination status');
   assert.match(rows[0].className,/rw-admin-market-header/u);
   assert.equal(rows[0].children.length,6);
-  for(const row of rows.slice(1)){
+  for(const row of rows.slice(1,-1)){
     assert.match(row.className,/rw-admin-market-row/u);
     assert.doesNotMatch(row.className,/rw-card|rw-market-admin-card/u);
     assert.equal(row.children.length,6,'compact six-column row');

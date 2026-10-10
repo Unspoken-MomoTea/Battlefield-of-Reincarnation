@@ -1013,3 +1013,86 @@ test('remote order and swap cancellations create no narration unless refunded co
   assert.deepEqual(host.events, []);
   assert.equal(host.read().stat_data.角色.空间币, 20);
 });
+
+test('negotiated deal escrow withdraws multi-assets, credentials and coins from one MVU save',async()=>{
+  const host=createHost({
+    系统状态:{是否在主神空间:true},
+    角色:{
+      空间币:1000,
+      道具:{药剂:{名称:'药剂',数量:3,品质:'E'}},
+      权限凭证:{D:2},
+    },
+  });
+  let sent;
+  const service=createMarketService({host,api:{
+    async createDeal(input){sent=clone(input);return {deal:{id:input.id}};},
+  }});
+  await service.createDeal({
+    title:'寻找治疗型伙伴',wanted:'不限定名字，有群体治疗即可',
+    coins:300,durationHours:48,
+    selections:[
+      {kind:'item',key:'药剂',quantity:2},
+      {kind:'item',key:'__credential:D',quantity:1},
+    ],
+  });
+  const state=host.read().stat_data;
+  assert.equal(state.角色.空间币,700);
+  assert.equal(state.角色.道具.药剂.数量,1);
+  assert.equal(state.角色.权限凭证.D,1);
+  assert.equal(sent.offer.coins,300);
+  assert.deepEqual(sent.offer.assets.map(x=>[x.name,x.quantity]),
+    [['药剂',2],['D级权限凭证',1]]);
+  assert.match(state.系统状态.待播报记录,/空间集市发布订单/u);
+  assert.match(state.系统状态.待播报记录,/300空间币/u);
+});
+
+test('negotiated deal API errors restore deposited assets without a narration entry',async()=>{
+  const host=createHost({
+    系统状态:{是否在主神空间:true},
+    角色:{空间币:300,道具:{材料:{名称:'材料',数量:2,品质:'F'}}},
+  });
+  const service=createMarketService({host,api:{
+    async createDeal(){throw new Error('server offline');},
+    async getDeal(){throw new Error('not found');},
+  }});
+  await assert.rejects(
+    service.createDeal({title:'测试订单',wanted:'希望得到装备',coins:90,
+      selections:[{kind:'item',key:'材料',quantity:2}]}),
+    /server offline/u,
+  );
+  const state=host.read().stat_data;
+  assert.equal(state.角色.空间币,300);
+  assert.equal(state.角色.道具.材料.数量,2);
+  assert.equal(state.系统状态.待播报记录,undefined);
+});
+
+test('negotiated escrow claims are exact-once per save, and winning teammates lose prior loyalty',async()=>{
+  const host=createHost({
+    系统状态:{是否在主神空间:true},
+    角色:{空间币:0,道具:{},权限凭证:{}},
+    关系列表:{},
+  });
+  let confirmed=0;
+  const service=createMarketService({host,api:{
+    async confirmDealTransfer(){confirmed++;return{};},
+  }});
+  const saveId=''; // Only claims received in the current save can be confirmed.
+  const refund={id:'refund:offer1',offer:{coins:55,assets:[
+    {kind:'item',name:'补给',quantity:2,data:{名称:'补给',数量:2,品质:'D'}},
+  ]}};
+  await service.receiveDealTransfer(refund);
+  await service.receiveDealTransfer(refund);
+  assert.equal(host.read().stat_data.角色.空间币,55);
+  assert.equal(host.read().stat_data.角色.道具.补给.数量,2);
+  assert.equal(host.read().stat_data.系统状态.待播报记录.split('\n').length,1);
+  assert.equal(confirmed,2);
+  const winner={id:'win:owner:deal1',offer:{coins:0,assets:[
+    {kind:'teammate',name:'医师',quantity:1,data:{名称:'医师',是否队友:true,好感度:85,态度:'信任'}},
+  ]}};
+  await service.receiveDealTransfer(winner);
+  assert.equal(host.read().stat_data.关系列表.医师.好感度,0);
+  assert.equal(host.read().stat_data.关系列表.医师.态度,'被交易的货物，对原主失去一切信任');
+  host.setChatId('different-save');
+  await assert.rejects(service.receiveDealTransfer({...refund,id:'refund:other',save_id:'my-original-save'}),
+    /另一个存档/u);
+});

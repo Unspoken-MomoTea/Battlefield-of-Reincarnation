@@ -151,6 +151,8 @@ test('testing market supports listing, idempotent purchase, delivery and seller 
   });
   assert.equal(purchase.response.status, 200);
   assert.equal(purchase.body.trade.total_price, 250);
+  assert.equal(purchase.body.trade.market_fee, 0, 'auction tax is paid up front; no second fee at sale');
+  assert.equal(purchase.body.trade.seller_proceeds, 250);
   assert.equal(purchase.body.trade.quantity, 2);
   assert.equal(purchase.body.trade.delivered_at, null);
   assert.equal(purchase.body.listing.remaining_quantity, 1);
@@ -1222,6 +1224,8 @@ test('a user cannot exceed ten active listings, including concurrent-looking seq
   assert.equal(denied.body.code, 'market_listing_limit');
   const me = await jsonRequest(testEnv, '/api/market/me', { headers });
   assert.equal(me.body.active_listing_count, 10);
+  assert.equal(me.body.active_listing_save_count, 10);
+  assert.equal(me.body.active_listing_other_save_count, 0);
 
   const cancel = await jsonRequest(testEnv, '/api/market/listings/limit-listing-0/cancel',
     { method: 'POST', headers });

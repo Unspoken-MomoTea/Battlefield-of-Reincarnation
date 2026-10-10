@@ -701,7 +701,12 @@ export function createMarketService({ host, api }) {
       const assets=transfer.offer?.assets || [];
       for(const asset of assets) if(collisionFor(next.stat_data,asset))
         throw new Error('待领取资产与现有资产冲突，请整理背包后重试');
-      for(const asset of assets) addAsset(next.stat_data,asset);
+      for(const asset of assets) {
+        // A successfully traded teammate loses loyalty to the previous owner.
+        // Refund receipts intentionally preserve the original relationship.
+        const incoming=transfer.id.startsWith('win:') ? listingAssetSnapshot(asset) : asset;
+        addAsset(next.stat_data,incoming);
+      }
       const amount=Number(transfer.offer?.coins || 0);
       next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0)+amount;
       received[transfer.id]=Date.now();

@@ -58,7 +58,9 @@ export async function listAdminMarket(request, env, user) {
   const url = new URL(request.url);
   const view = String(url.searchParams.get('view') || 'listings');
   const query = String(url.searchParams.get('q') || '').trim().slice(0, 80);
-  const status = String(url.searchParams.get('status') || '').trim();
+  // No status parameter means the actionable market, not years of settled data.
+  // Explicit status=all enables historical inspection of retained records.
+  const status = String(url.searchParams.get('status') ?? 'active').trim();
   const riskOnly = url.searchParams.get('risk') === '1';
   const limit = Math.max(1, Math.min(100, integer(url.searchParams.get('limit'), 50)));
   const offset = Math.max(0, integer(url.searchParams.get('offset'), 0));
@@ -70,7 +72,7 @@ export async function listAdminMarket(request, env, user) {
   if (view === 'orders') {
     const clauses = [];
     const args = [];
-    if (status) { clauses.push('o.status = ?'); args.push(status); }
+    if (status && status !== 'all') { clauses.push('o.status = ?'); args.push(status); }
     if (query) {
       clauses.push('(o.asset_name LIKE ? OR u.display_name LIKE ?)');
       args.push('%' + query + '%', '%' + query + '%');
@@ -103,7 +105,7 @@ export async function listAdminMarket(request, env, user) {
   if (view === 'swaps') {
     const clauses = [];
     const args = [];
-    if (status) { clauses.push('s.status = ?'); args.push(status); }
+    if (status && status !== 'all') { clauses.push('s.status = ?'); args.push(status); }
     if (query) {
       clauses.push('(s.offered_name LIKE ? OR s.wanted_name LIKE ? OR u.display_name LIKE ?)');
       args.push('%' + query + '%', '%' + query + '%', '%' + query + '%');
@@ -130,9 +132,11 @@ export async function listAdminMarket(request, env, user) {
     });
   }
 
-  const clauses = [];
+  // 0023 marked legacy test stock with updated_at = 0. Never surface
+  // those archived rows, even when the moderator selects 'all' statuses.
+  const clauses = ['l.updated_at > 0'];
   const args = [];
-  if (status) { clauses.push('l.status = ?'); args.push(status); }
+  if (status && status !== 'all') { clauses.push('l.status = ?'); args.push(status); }
   if (query) {
     clauses.push('(l.asset_name LIKE ? OR u.display_name LIKE ?)');
     args.push('%' + query + '%', '%' + query + '%');

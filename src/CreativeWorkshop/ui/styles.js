@@ -1612,4 +1612,35 @@ export const WORKSHOP_CSS = `
   .rw-project-card>.rw-project-footer{margin-bottom:9px}
   .rw-showcase-more-card{-webkit-appearance:none!important;appearance:none!important;width:auto!important;height:auto!important;padding:0!important;border:1px dashed rgba(162,139,107,.22)!important;border-radius:9px!important;background:#141518!important;color:#9d8b70!important;box-shadow:none!important}
   .rw-showcase-more-card:hover{background:rgba(162,139,107,.045)!important;color:#d3b98f!important}
+
+  /* Moderator marketplace: dense full-width records instead of tile cards. */
+  .rw-admin-market-list{display:flex;flex-direction:column;min-width:0;margin-top:10px;
+    border:1px solid var(--rw-line);border-radius:11px;overflow:hidden;background:rgba(0,0,0,.14)}
+  .rw-admin-market-row{display:grid;grid-template-columns:minmax(180px,2fr) minmax(125px,1fr)
+    minmax(84px,.65fr) minmax(120px,1fr) minmax(175px,1.35fr) minmax(180px,1.45fr);
+    align-items:center;gap:12px;padding:11px 14px;min-width:0;
+    border-bottom:1px solid var(--rw-line)}
+  .rw-admin-market-row:last-child{border-bottom:0}
+  .rw-admin-market-row:not(.rw-admin-market-header):hover{background:rgba(255,255,255,.025)}
+  .rw-admin-market-header{background:rgba(255,255,255,.035);font-size:11px;font-weight:750;
+    color:#9aa7b9;min-height:20px}
+  .rw-admin-market-cell{display:flex;flex-direction:column;min-width:0;gap:4px;overflow-wrap:anywhere}
+  .rw-admin-market-primary{font-size:12px;font-weight:640;line-height:1.5;color:#e4e8ee;overflow-wrap:anywhere}
+  .rw-admin-market-item .rw-admin-market-primary{font-size:13px;font-weight:780;color:#f1f4f8}
+  .rw-admin-market-secondary{font-size:10px;line-height:1.55;color:#8998aa;overflow-wrap:anywhere}
+  .rw-admin-market-actions{display:flex;gap:5px;align-items:center;justify-content:flex-start;flex-wrap:wrap;min-width:0}
+  .rw-admin-market-actions .rw-button{min-height:31px;padding:5px 9px;font-size:10px;white-space:nowrap}
+  @media(max-width:1060px){
+    .rw-admin-market-row{grid-template-columns:minmax(170px,2fr) minmax(100px,1fr)
+      minmax(70px,.6fr) minmax(110px,.9fr) minmax(140px,1.1fr) minmax(155px,1.2fr);
+      gap:9px;padding:10px}
+  }
+  @media(max-width:760px){
+    .rw-admin-market-header{display:none}
+    .rw-admin-market-row:not(.rw-admin-market-header){grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);
+      align-items:start;gap:8px 12px;padding:12px}
+    .rw-admin-market-row>.rw-admin-market-cell:nth-child(1){grid-column:1/-1}
+    .rw-admin-market-row>.rw-admin-market-cell:nth-child(5){grid-column:1/-1}
+    .rw-admin-market-actions{grid-column:1/-1;border-top:1px solid var(--rw-line);padding-top:8px}
+  }
 `;

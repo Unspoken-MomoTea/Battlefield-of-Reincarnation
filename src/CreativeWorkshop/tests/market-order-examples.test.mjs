@@ -49,7 +49,7 @@ test('samples cover flexible role, skill, item, equipment and bloodline intents 
   }
 });
 
-test('testing-channel samples render through orders tab and never submit real trades', async () => {
+test('unified orders render public/my tabs and never perform trades while browsing', async () => {
   const nodes = {
     marketModes: [], marketPanels: [], marketCategories: [],
     marketOrderViews: [new Node('button'), new Node('button')],
@@ -61,41 +61,30 @@ test('testing-channel samples render through orders tab and never submit real tr
     marketOrdersEditor: new Node(),
     marketSummary: new Node(),
   };
-  nodes.marketOrderViews[0].dataset.marketOrderView = 'buy';
-  nodes.marketOrderViews[1].dataset.marketOrderView = 'swap';
-  let reads = 0;
-  let writes = 0;
-  const marketService = {
-    listBuyOrders: async () => { reads++; return { items: [] }; },
-    listSwaps: async () => { reads++; return { items: [] }; },
-    inventory: async () => ({assets:[],coin:0,inHub:true}),
-    fillBuyOrder: async () => { writes++; throw new Error('demo trade forbidden'); },
-    acceptSwap: async () => { writes++; throw new Error('demo swap forbidden'); },
+  nodes.marketOrderViews[0].dataset.marketOrderView='all';
+  nodes.marketOrderViews[1].dataset.marketOrderView='mine';
+  let reads=0,writes=0;
+  const marketService={
+    listDeals: async()=>{reads++;return{items:[]};},
+    myDeals: async()=>{reads++;return{deals:[],my_bids:[],pending_deal_transfers:[]};},
+    inventory:async()=>({assets:[],coin:0,inHub:true}),
+    submitDealBid:async()=>{writes++;throw new Error('unexpected trade');},
   };
-  const view = createMarketView({
-    nodes, element, button,
-    empty: (root, text) => root.replaceChildren(new Node('span', '', text)),
-    notifyError: error => { throw error; },
-    confirmDialog: async () => false,
-    host: {}, marketService, getAuth: () => ({user: {id: 1}}),
-    showExamples: true,
+  const view=createMarketView({
+    nodes,element,button,
+    empty:(root,text)=>root.replaceChildren(new Node('span','',text)),
+    notifyError:error=>{throw error;},
+    confirmDialog:async()=>false, host:{},marketService,
+    getAuth:()=>({user:{id:1}}),showExamples:true,
   });
   await view.openOrders();
-  assert.equal(reads, 1, 'real query only on opening public orders');
-  nodes.marketOrderExamples.click();
-  await flush();
-  assert.equal(nodes.marketOrdersList.children.length, 3);
-  assert.ok(nodes.marketOrdersList.children.every(x => x.classes.has('is-demo')));
-  assert.ok(nodes.marketOrdersEditor.children[0].classes.has('rw-ah-example-detail'));
+  assert.equal(reads,1);
+  assert.equal(nodes.marketSwapCreate.hidden,true);
+  assert.equal(nodes.marketOrderExamples.hidden,true);
   nodes.marketOrderViews[1].click();
   await flush();
-  assert.equal(nodes.marketOrdersList.children.length, 3);
-  assert.equal(nodes.marketOrdersEditor.children[0].children[0].textContent, '订单示例 · 仅供预览');
-  assert.equal(reads, 1, 'switching sample types must never query D1');
-  assert.equal(writes, 0);
-  nodes.marketOrderExamples.click();
-  await flush();
-  assert.equal(reads, 2, 'return to real swaps resumes public order query');
+  assert.equal(reads,2);
+  assert.equal(writes,0);
 });
 
 test('example button is hidden outside testing channel', () => {

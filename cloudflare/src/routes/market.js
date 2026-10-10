@@ -1,4 +1,4 @@
-import { HttpError } from '../http.js';
+import { HttpError, json } from '../http.js';
 import {
   buyMarketListing,
   cancelMarketListing,
@@ -75,7 +75,7 @@ export async function routeMarket(request, env, pathname) {
   if (pathname === '/api/market/deals' && request.method === 'POST')
     return createMarketDeal(request,env,await marketUser(request,env));
   if (pathname === '/api/market/deals/me' && request.method === 'GET')
-    return getMarketDealState(env,await marketUser(request,env));
+    return json(await getMarketDealState(env, await marketUser(request, env)));
   const parts=pathname.split('/').filter(Boolean);
   if(parts[0]==='api' && parts[1]==='market' && parts[2]==='deals' && parts.length>=4) {
     const me=await marketUser(request,env);

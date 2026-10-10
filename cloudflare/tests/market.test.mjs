@@ -1678,7 +1678,8 @@ test('negotiated orders expire and every unaccepted offer becomes a persistent r
   const hBidder=authHeaders(testEnv,bidder,'expire-deal-bidder-session');
   const created=await jsonRequest(testEnv,'/api/market/deals',{method:'POST',headers:hOwner,body:JSON.stringify({
     id:'expire:deal',title:'招募伙伴',wanted:'寻找侦察型伙伴',offer:{coins:700},duration_hours:24,
-  })})).response.status,201);
+  })});
+  assert.equal(created.response.status,201,JSON.stringify(created.body));
   assert.equal((await jsonRequest(testEnv,'/api/market/deals/expire%3Adeal/bids',{method:'POST',headers:hBidder,body:JSON.stringify({
     id:'expire:bid',offer:{coins:10},note:'我想尝试',
   })})).response.status,201);

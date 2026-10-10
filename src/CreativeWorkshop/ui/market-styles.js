@@ -207,6 +207,7 @@ export const MARKET_CSS = `
 .rw-ah-muted-line{padding:9px;color:#707b89;font-size:10px}
 
 .rw-market-notice{padding:8px 9px;border-radius:7px;background:rgba(96,165,250,.06);border:1px solid rgba(96,165,250,.17);font-size:10px;line-height:1.5;color:#9fb7d3}
+.rw-market-notice[hidden],.rw-market-notice:empty{display:none!important}
 .rw-market-notice.warning{background:rgba(245,158,11,.06);border-color:rgba(245,158,11,.2);color:#cbb17b}
 
 

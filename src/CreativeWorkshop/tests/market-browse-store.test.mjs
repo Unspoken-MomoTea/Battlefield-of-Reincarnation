@@ -128,3 +128,53 @@ test('browse detail cache returns immediately after first fetch and refreshes on
   await store.ensureSnapshot();
   assert.equal(snapshotCalls, 2);
 });
+
+test('public catalogue uses one 50-item server page until Next is requested',async()=>{
+  const requests=[];
+  const store=createMarketBrowseStore({marketService:{
+    async catalog(filters){
+      requests.push({...filters});
+      return {
+        items:[{key:'item-'+filters.offset,name:'商品'+filters.offset,kind:'item',lowest_price:100,
+          quality:'F',subtype:'材料'}],
+        counts:filters.offset?{}:{item:151},
+        facets:filters.offset?{qualities:[],subtypes:[]}:
+          {qualities:[{value:'F',count:151}],subtypes:[{value:'材料',count:151}]},
+        next_offset:filters.offset<100?filters.offset+50:null,
+      };
+    },
+    async catalogSnapshot(){throw new Error('product browsing must not fetch full snapshot');},
+    async catalogDetail(){return{};},
+  }});
+  const filters={kind:'item',sort:'price_asc'};
+  const first=await store.ensurePage(filters);
+  assert.equal(first.offset,0);
+  assert.equal(first.next_offset,50);
+  assert.equal(requests.length,1);
+  assert.equal(requests[0].limit,50);
+  await store.ensurePage(filters);
+  assert.equal(requests.length,1,'repeated render is cached');
+  const second=await store.nextPage(filters);
+  assert.equal(second.offset,50);
+  assert.equal(second.counts.item,151,'first-page facet totals remain available');
+  assert.equal(requests.length,2);
+  await store.previousPage(filters);
+  assert.equal(store.pageQuery(filters).offset,0);
+  assert.equal(requests.length,2,'previous visited page comes from small local cache');
+  await store.ensurePage({...filters,quality:'F'});
+  assert.equal(requests.length,3,'changed filters fetch a new bounded server page');
+});
+
+test('concurrent requests for the same filtered market page use one server call',async()=>{
+  let resolve;let calls=0;
+  const store=createMarketBrowseStore({marketService:{
+    catalog(){calls++;return new Promise(r=>{resolve=r;});},
+    async catalogDetail(){return{};},
+  }});
+  const filters={kind:'item'};
+  const one=store.ensurePage(filters),two=store.ensurePage(filters);
+  assert.equal(calls,1);
+  resolve({items:[],counts:{},facets:{qualities:[],subtypes:[]},next_offset:null});
+  await Promise.all([one,two]);
+  assert.equal(store.pageQuery(filters).loaded_at>0,true);
+});

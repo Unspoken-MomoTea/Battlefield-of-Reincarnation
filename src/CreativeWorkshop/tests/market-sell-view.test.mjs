@@ -178,6 +178,10 @@ test('category switch requests the right kind and ignores previous-category subt
       return node;
     }),
     marketSubtype: new Node('select'),
+    marketQuality: new Node('select'),
+    marketMinPrice: new Node('input'),
+    marketMaxPrice: new Node('input'),
+    marketSearch: new Node('input'),
     marketList: new Node(), marketCount: new Node(),
     marketSummary: new Node(), marketInspector: new Node(),
   };
@@ -211,10 +215,16 @@ test('category switch requests the right kind and ignores previous-category subt
   assert.equal(nodes.marketList.querySelectorAll('.rw-ah-result-row').length,3);
   // A subtype that was valid under the old category must not hide the new one.
   nodes.marketSubtype.value='法术';
+  nodes.marketQuality.value='S';
+  nodes.marketMinPrice.value='999999';
+  nodes.marketSearch.value='闪电';
   nodes.marketCategories[2].click();
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(requests.at(-1).kind,'item');
   assert.equal(requests.at(-1).subtype,'');
+  assert.equal(requests.at(-1).quality,'');
+  assert.equal(requests.at(-1).minPrice,0);
+  assert.equal(requests.at(-1).query,'');
   assert.equal(nodes.marketList.querySelectorAll('.rw-ah-result-row').length,1);
   nodes.marketCategories[1].click();
   await new Promise(resolve=>setImmediate(resolve));
@@ -222,8 +232,8 @@ test('category switch requests the right kind and ignores previous-category subt
   assert.equal(nodes.marketList.querySelectorAll('.rw-ah-result-row').length,1);
   nodes.marketCategories[0].click();
   await new Promise(resolve=>setImmediate(resolve));
-  assert.equal(requests.at(-1).kind,'');
-  assert.equal(nodes.marketList.querySelectorAll('.rw-ah-result-row').length,3);
+  assert.equal(nodes.marketList.querySelectorAll('.rw-ah-result-row').length,3,
+    'returning to All can use the existing valid first-page cache');
 });
 
 test('header refresh fetches active order board instead of unrelated product list', async () => {

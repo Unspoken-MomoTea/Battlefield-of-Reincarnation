@@ -50,6 +50,7 @@ export function createMarketView({
   let catalogItems = [];
   let catalogCounts = {};
   let catalogFacets = { qualities: [], subtypes: [] };
+  let currentBrowsePage = null;
   const browseStore = createMarketBrowseStore({ marketService });
   let detailTimer = null;
   let selectedKey = '';
@@ -446,7 +447,9 @@ export function createMarketView({
     }
     const listingCount = Object.values(catalogCounts || {}).reduce((sum, value) => sum + Number(value || 0), 0);
     nodes.marketCount.textContent = catalogItems.length + ' 种商品 · ' + listingCount + ' 个当前挂单';
-    const page=browseStore.pageQuery(browseFilters());
+    // Facet option synchronization may reset a now-invalid control value.
+    // Use the fulfilled page itself for pagination, not a fresh filter lookup.
+    const page=currentBrowsePage || browseStore.pageQuery(browseFilters());
     if (nodes.marketMore) nodes.marketMore.hidden = page.next_offset == null;
     if (nodes.marketPrev) nodes.marketPrev.hidden = !page.offset;
     if (nodes.marketPage) nodes.marketPage.textContent = '第 '+(Math.floor((page.offset||0)/50)+1)+' 页 · 每页最多 50 种';
@@ -465,6 +468,7 @@ export function createMarketView({
     catalogItems = result.items;
     catalogCounts = result.counts;
     catalogFacets = result.facets;
+    currentBrowsePage = result;
     syncSubtypeOptions();
     renderCatalogRows();
     return result;
@@ -691,6 +695,7 @@ export function createMarketView({
     const request = (async () => {
       if (currentMode === 'browse') {
         browseStore.invalidate();
+        currentBrowsePage = null;
         selectedDetail = null;
         empty(nodes.marketList, '正在读取空间集市…');
         await loadCatalog({ force: true });
@@ -1339,6 +1344,12 @@ export function createMarketView({
       // Subtypes belong to a category: reusing the previous category's value
       // turns a valid set of listings into an apparently empty result.
       if (nodes.marketSubtype) nodes.marketSubtype.value = '';
+      // Category navigation starts from that category's complete inventory.
+      // Do not carry hidden filters from a previously selected kind.
+      if (nodes.marketQuality) nodes.marketQuality.value = '';
+      if (nodes.marketMinPrice) nodes.marketMinPrice.value = '';
+      if (nodes.marketMaxPrice) nodes.marketMaxPrice.value = '';
+      if (nodes.marketSearch) nodes.marketSearch.value = '';
       selectedKey = '';
       selectedDetail = null;
       for (const candidate of nodes.marketCategories || []) {

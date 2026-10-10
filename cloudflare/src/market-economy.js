@@ -138,7 +138,8 @@ export function marketDayKey(now = Date.now()) {
 }
 
 export function marketCredentialSpecs() {
-  return MARKET_QUALITIES.slice(0, 6).map(quality => ({
+  // The daily system stall sells D–A only; F/E player assets still exist.
+  return MARKET_QUALITIES.slice(2, 6).map(quality => ({
     quality,
     id: `system:credential:${quality}`,
     name: `${quality}级权限凭证`,

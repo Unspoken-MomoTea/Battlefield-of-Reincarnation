@@ -243,13 +243,20 @@ async function ensureSystemCredentialListings(env) {
 
   const now = nowMs();
   const day = marketDayKey(now);
+  // Also retire previously seeded F/E stock; keep players' listings untouched.
+  const retiredIds = "('system:credential:F', 'system:credential:E', 'system:credential:S', 'system:credential:SS', 'system:credential:SSS')";
+  const retiredKeys = await all(env,
+    `SELECT DISTINCT catalog_key FROM market_listings
+     WHERE id IN ${retiredIds} AND is_system = 1 AND catalog_key <> ''
+       AND (status <> 'cancelled' OR remaining_quantity <> 0)`);
   await env.DB.prepare(
     `UPDATE market_listings
      SET status = 'cancelled', remaining_quantity = 0, updated_at = ?
-     WHERE id IN ('system:credential:S', 'system:credential:SS', 'system:credential:SSS')
-       AND is_system = 1
+     WHERE id IN ${retiredIds} AND is_system = 1
        AND (status <> 'cancelled' OR remaining_quantity <> 0)`,
   ).bind(now).run();
+  // Aggregate remaining player listings, never delete a shared catalog key.
+  for (const row of retiredKeys) await refreshMarketCatalogKey(env, row.catalog_key);
   for (const spec of marketCredentialSpecs()) {
     const existing = await first(
       env,

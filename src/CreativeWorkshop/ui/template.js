@@ -489,9 +489,8 @@ export function workshopTemplate(version) {
         <div data-admin-section="market" hidden>
           <div class="rw-toolbar">
             <select class="rw-select" data-field="admin-market-view">
-              <option value="listings">当前挂单</option>
-              <option value="orders">求购单</option>
-              <option value="swaps">交换单</option>
+              <option value="listings">商品拍卖</option>
+              <option value="deals">自由订单</option>
             </select>
             <input class="rw-input grow" data-field="admin-market-search" placeholder="搜索商品或玩家">
             <select class="rw-select" data-field="admin-market-status">

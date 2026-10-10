@@ -1888,3 +1888,79 @@ test('admin market hides reset-era stale test listings, shows active stock, and 
     'never touch active listings');
 });
 
+
+test('admin market orders query the same negotiated deal pool as public Orders, not abandoned legacy buy orders',async()=>{
+  const testEnv=env();
+  const admin=createUser(testEnv,'unified-admin','市场管理员');
+  testEnv.DB.db.prepare('UPDATE users SET is_admin=1 WHERE id=?').run(admin.id);
+  const owner=createUser(testEnv,'unified-owner','发布人');
+  const hAdmin=authHeaders(testEnv,admin,'unified-admin-auth');
+  const hOwner=authHeaders(testEnv,owner,'unified-owner-auth','save:unified');
+  const offer=await jsonRequest(testEnv,'/api/market/deals',{
+    method:'POST',headers:hOwner,
+    body:JSON.stringify({id:'unified:deal-test',title:'招募治疗伙伴',
+      wanted:'拥有治疗能力即可，无须精确名称',offer:{coins:125},duration_hours:48}),
+  });
+  assert.equal(offer.response.status,201);
+  // Simulate a stray old order that no longer exists in the user's new Orders UI.
+  testEnv.DB.db.prepare(
+    "INSERT INTO market_buy_orders (id,save_id,buyer_user_id,asset_kind,asset_name,unit_price,total_quantity,remaining_quantity,escrow_balance,status,expires_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,'active',?,?,?)",
+  ).run('stray:old-order','save:unified',owner.id,'item','无限极品',1,1,1,1,Date.now()+86400000,Date.now(),Date.now());
+  const publicOrders=await jsonRequest(testEnv,'/api/market/deals');
+  assert.deepEqual(publicOrders.body.items.map(row=>row.id),['unified:deal-test']);
+
+  for(const view of ['deals','orders','swaps']){
+    const adminOrders=await jsonRequest(testEnv,'/api/admin/market?view='+view+'&status=active',{headers:hAdmin});
+    assert.equal(adminOrders.response.status,200);
+    assert.equal(adminOrders.body.view,'deals');
+    assert.deepEqual(adminOrders.body.items.map(row=>row.id),publicOrders.body.items.map(row=>row.id));
+    assert.equal(adminOrders.body.items[0].wanted,'拥有治疗能力即可，无须精确名称');
+    assert.equal(adminOrders.body.items[0].offer.coins,125);
+    assert.equal(adminOrders.body.items[0].owner.display_name,'发布人');
+  }
+  const guest=await jsonRequest(testEnv,'/api/admin/market?view=deals',{headers:hOwner});
+  assert.equal(guest.response.status,403,'normal players must not read moderator data');
+
+  const cancel=await jsonRequest(testEnv,'/api/admin/market-deals/unified%3Adeal-test/cancel',
+    {method:'POST',headers:hAdmin});
+  assert.equal(cancel.response.status,200);
+  assert.equal((await jsonRequest(testEnv,'/api/market/deals')).body.items.length,0);
+  assert.equal((await jsonRequest(testEnv,'/api/admin/market?view=deals&status=active',
+    {headers:hAdmin})).body.items.length,0);
+  const ownerMe=await jsonRequest(testEnv,'/api/market/me',{headers:hOwner});
+  assert.equal(ownerMe.body.pending_deal_transfers.length,1,
+    'moderation must refund escrow into original save rather than delete it');
+  assert.equal(ownerMe.body.pending_deal_transfers[0].offer.coins,125);
+});
+
+test('legacy order retirement closes buy/swap test data with claimable refunds, not deleted escrow',async()=>{
+  const testEnv=env();
+  const buyer=createUser(testEnv,'legacy-retire-buyer','旧求购买家');
+  const swapper=createUser(testEnv,'legacy-retire-swapper','旧交换卖家');
+  const hBuyer=authHeaders(testEnv,buyer,'legacy-retire-buyer-auth','save:buyer');
+  const hSwapper=authHeaders(testEnv,swapper,'legacy-retire-swapper-auth','save:swapper');
+  const time=Date.now(),duration=time+86400000;
+  testEnv.DB.db.prepare(
+    "INSERT INTO market_buy_orders (id,save_id,buyer_user_id,asset_kind,asset_name,unit_price,total_quantity,remaining_quantity,escrow_balance,status,expires_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,'active',?,?,?)",
+  ).run('legacy:buy-001','save:buyer',buyer.id,'item','旧测试订单',100,1,1,100,duration,time,time);
+  testEnv.DB.db.prepare(
+    "INSERT INTO market_swaps (id,owner_user_id,owner_save_id,offered_kind,offered_name,offered_json,offered_quantity,wanted_kind,wanted_name,wanted_quantity,status,expires_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,'active',?,?,?)",
+  ).run('legacy:swap-001',swapper.id,'save:swapper','item','旧药剂',
+    JSON.stringify({名称:'旧药剂',品质:'D'}),1,'item','任意道具',1,duration,time,time);
+  const sql=readFileSync(new URL('../migrations/0025_retire_legacy_market_orders.sql',import.meta.url),'utf8');
+  testEnv.DB.db.exec(sql);
+  // Wrangler applies this once; repeat to assert SQL also stays idempotent.
+  testEnv.DB.db.exec(sql);
+  const buy=testEnv.DB.db.prepare("SELECT status,escrow_balance FROM market_buy_orders WHERE id='legacy:buy-001'").get();
+  assert.equal(buy.status,'cancelled');
+  assert.equal(buy.escrow_balance,0);
+  assert.equal(testEnv.DB.db.prepare("SELECT status FROM market_swaps WHERE id='legacy:swap-001'").get().status,'cancelled');
+  const buyerMe=await jsonRequest(testEnv,'/api/market/me',{headers:hBuyer});
+  const swapMe=await jsonRequest(testEnv,'/api/market/me',{headers:hSwapper});
+  assert.equal(buyerMe.body.pending_payouts.length,1);
+  assert.equal(buyerMe.body.pending_payouts[0].amount,100);
+  assert.equal(swapMe.body.pending_swap_transfers.length,1);
+  assert.equal(swapMe.body.pending_swap_transfers[0].asset.name,'旧药剂');
+  assert.equal(testEnv.DB.db.prepare('SELECT COUNT(*) AS n FROM market_payouts').get().n,1);
+  assert.equal(testEnv.DB.db.prepare('SELECT COUNT(*) AS n FROM market_swap_transfers').get().n,1);
+});

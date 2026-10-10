@@ -1,5 +1,6 @@
 import { MARKET_KIND_LABELS } from '../services/market-service.js';
 import { createMarketBrowseStore } from './market-browse-store.js';
+import { marketOrderPreviewExamples } from './market-order-examples.js';
 import {
   marketAssetDetailEntries,
   marketAssetFieldDisplay,
@@ -45,7 +46,7 @@ const until = value => {
 };
 export function createMarketView({
   nodes, element, button, empty, notifyError, confirmDialog,
-  host, marketService, getAuth,
+  host, marketService, getAuth, showExamples = false,
 }) {
   let catalogItems = [];
   let catalogCounts = {};
@@ -61,6 +62,8 @@ export function createMarketView({
   let currentMineView = 'active';
   let selectedOrderId = '';
   let orderDraft = null;
+  let examplesMode = false;
+  if (nodes.marketOrderExamples) nodes.marketOrderExamples.hidden = !showExamples;
   const MARKET_VIEW_CACHE_MS = 15_000;
   let mineStateCache = null;
   let mineStateLoadedAt = 0;
@@ -1170,7 +1173,7 @@ export function createMarketView({
 
     const kind = marketKindSelect(orderDraft?.kind || 'item');
     const name = element('input', 'rw-input');
-    name.placeholder = '准确商品名称';
+    name.placeholder = '当前自动撮合需要完全一致的名称';
     name.value = orderDraft?.name || '';
     const qualitySelect = marketQualitySelect(orderDraft?.quality || '');
     const subtype = element('input', 'rw-input');
@@ -1214,11 +1217,12 @@ export function createMarketView({
     );
     editor.append(grid);
 
-    const total = element('div', 'rw-ah-order-total');
+    const total = element('p', 'rw-ah-order-help rw-ah-order-estimate');
     const updateTotal = () => {
       const amount = kind.value === 'item' ? Math.max(1, Math.floor(Number(quantity.value) || 1)) : 1;
       const price = Math.max(0, Math.floor(Number(unitPrice.value) || 0));
-      total.textContent = price ? '需要托管 ' + coin(price * amount) + ' 空间币' : '设置求购单价后计算托管金额';
+      total.hidden = !price;
+      total.textContent = price ? '将托管 ' + coin(price * amount) + ' 空间币' : '';
     };
     quantity.addEventListener('input', updateTotal);
     unitPrice.addEventListener('input', updateTotal);
@@ -1279,7 +1283,7 @@ export function createMarketView({
 
     const wantedKind = marketKindSelect('item');
     const wantedName = element('input', 'rw-input');
-    wantedName.placeholder = '希望获得的准确商品名称';
+    wantedName.placeholder = '当前自动撮合需要完全一致的名称';
     const wantedQuality = marketQualitySelect('');
     const wantedSubtype = element('input', 'rw-input');
     wantedSubtype.placeholder = '可选子类型';
@@ -1497,10 +1501,68 @@ export function createMarketView({
     nodes.marketOrdersEditor.replaceChildren(editor);
   }
 
+  // Samples describe the future buyer/seller-consent flow. They are client-only
+  // examples, never real D1 orders, and cannot trigger trade or escrow methods.
+  function renderExampleOrderDetail(order) {
+    const editor = element('div', 'rw-ah-order-detail rw-ah-example-detail');
+    editor.append(
+      element('div', 'rw-ah-section-label', '订单示例 · 仅供预览'),
+      element('h3', '', currentOrderView === 'swap'
+        ? (order.offered?.name || '资产') + ' ⇄ ' + (order.wanted?.name || '资产')
+        : order.asset_name),
+      element('p', 'rw-ah-order-help', order.note || ''),
+    );
+    const facts = element('div', 'rw-ah-order-facts');
+    facts.append(
+      element('span', '', currentOrderView === 'swap' ? '交换意向' : '求购意向'),
+      element('span', '', currentOrderView === 'swap' ? order.owner?.display_name : order.buyer?.display_name),
+      element('span', '', '双方协商确认'),
+    );
+    editor.append(facts);
+    if (currentOrderView === 'swap') {
+      const exchange = element('div', 'rw-ah-swap-exchange');
+      const offered = element('div', 'rw-ah-swap-side');
+      offered.append(
+        element('span', '', '发布者提供'),
+        element('strong', '', (order.offered?.name || '资产') + ' ×' + (order.offered?.quantity || 1)),
+        element('small', '', kindLabel(order.offered?.kind)),
+      );
+      const wanted = element('div', 'rw-ah-swap-side');
+      wanted.append(
+        element('span', '', '希望交换'),
+        element('strong', '', order.wanted?.name || '自选资产'),
+        element('small', '', kindLabel(order.wanted?.kind)),
+      );
+      exchange.append(offered, element('div', 'rw-ah-swap-arrow', '⇄'), wanted);
+      editor.append(exchange);
+    } else {
+      const terms = element('div', 'rw-ah-order-facts');
+      terms.append(
+        element('span', '', kindLabel(order.asset_kind)),
+        element('span', '', '意向价 ' + coin(order.unit_price) + ' 空间币'),
+        element('span', '', '数量 ' + order.remaining_quantity),
+      );
+      editor.append(terms);
+    }
+    editor.append(
+      element('div', 'rw-ah-section-label', '预期的自由报价流程'),
+      element('p', 'rw-ah-order-help',
+        '发布者描述需求 → 对方选取自己的真实资产提出报价 → 发布者查看全部属性并同意或拒绝 → 双方领取结算。'),
+      element('p', 'rw-ah-example-disclaimer',
+        '仅供界面预览 · 不属于真实订单 · 无法交易 · 不读取或修改存档、空间币与 D1'),
+    );
+    nodes.marketOrdersEditor.replaceChildren(editor);
+  }
+
   async function renderOrderMode({ force = false } = {}) {
     requireLogin();
-    const result = await loadOrderState(currentOrderView, { force });
+    const result = examplesMode ? { items: marketOrderPreviewExamples(currentOrderView) }
+      : await loadOrderState(currentOrderView, { force });
     const items = result?.items || [];
+    if (nodes.marketOrderExamples) {
+      nodes.marketOrderExamples.textContent = examplesMode ? '返回公开订单' : '查看示例';
+      nodes.marketOrderExamples.classList.toggle('is-active', examplesMode);
+    }
     for (const tab of nodes.marketOrderViews || []) {
       tab.classList.toggle('is-active', tab.dataset.marketOrderView === currentOrderView);
     }
@@ -1520,6 +1582,10 @@ export function createMarketView({
       const row = element('button', 'rw-ah-order-row');
       row.type = 'button';
       row.classList.toggle('is-selected', item.id === selectedOrderId);
+      if (item.demo) {
+        row.classList.add('is-demo');
+        row.append(element('small', 'rw-ah-example-marker', '示例 · 不可交易'));
+      }
       if (currentOrderView === 'swap') {
         row.append(
           element('strong', '', (item.offered?.name || '资产') + ' ⇄ ' + (item.wanted?.name || '资产')),
@@ -1538,7 +1604,8 @@ export function createMarketView({
         for (const [index, child] of [...nodes.marketOrdersList.children].entries()) {
           child.classList.toggle('is-selected', items[index]?.id === selectedOrderId);
         }
-        void (currentOrderView === 'swap' ? renderSwapDetail(item) : renderBuyOrderDetail(item))
+        void (item.demo ? Promise.resolve(renderExampleOrderDetail(item))
+          : currentOrderView === 'swap' ? renderSwapDetail(item) : renderBuyOrderDetail(item))
           .catch(notifyError);
       });
       return row;
@@ -1551,7 +1618,8 @@ export function createMarketView({
       child.classList.toggle('is-selected', items[index]?.id === selectedOrderId);
     }
     if (!orderDraft) {
-      if (currentOrderView === 'swap') await renderSwapDetail(selected);
+      if (selected.demo) renderExampleOrderDetail(selected);
+      else if (currentOrderView === 'swap') await renderSwapDetail(selected);
       else await renderBuyOrderDetail(selected);
     }
   }
@@ -1750,12 +1818,20 @@ export function createMarketView({
     invalidateMineState();
     void renderMineMode({ force: true }).catch(notifyError);
   });
+  nodes.marketOrderExamples?.addEventListener('click', () => {
+    if (!showExamples) return;
+    examplesMode = !examplesMode;
+    orderDraft = null;
+    selectedOrderId = '';
+    void renderOrderMode().catch(notifyError);
+  });
   nodes.marketOrderRefresh?.addEventListener('click', () => {
     invalidateOrderState(currentOrderView);
     void renderOrderMode({ force: true }).catch(notifyError);
   });
 
   nodes.marketOrderCreate?.addEventListener('click', () => {
+    examplesMode = false;
     currentOrderView = 'buy';
     orderDraft = {};
     for (const tab of nodes.marketOrderViews || []) {
@@ -1764,6 +1840,7 @@ export function createMarketView({
     void renderCreateBuyOrder().catch(notifyError);
   });
   nodes.marketSwapCreate?.addEventListener('click', () => {
+    examplesMode = false;
     currentOrderView = 'swap';
     orderDraft = { swap: true };
     for (const tab of nodes.marketOrderViews || []) {

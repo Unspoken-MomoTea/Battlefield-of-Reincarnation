@@ -253,7 +253,12 @@ export const MARKET_CSS = `
 .rw-ah-order-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:10px;border:1px solid var(--ah-line);border-radius:8px;background:rgba(0,0,0,.1)}
 .rw-ah-order-field{display:flex;flex-direction:column;gap:5px}
 .rw-ah-order-field>span{font-size:9px;color:#7c8795}
-.rw-ah-order-total{padding:9px 10px;border:1px solid rgba(215,170,74,.18);border-radius:7px;background:rgba(215,170,74,.045);color:#e1bd67;font-size:12px}
+.rw-ah-order-estimate{font-size:11px;color:#c8b283}
+.rw-ah-order-estimate[hidden]{display:none!important}
+.rw-ah-order-row.is-demo{border-left:2px solid rgba(215,170,74,.18)}
+.rw-ah-example-marker{color:#c9a667!important;font-size:9px}
+.rw-ah-example-detail{max-width:700px}
+.rw-ah-example-disclaimer{padding:7px 0;border-top:1px solid var(--ah-line);color:#74808e;font-size:10px;line-height:1.6}
 .rw-ah-order-facts{display:flex;flex-wrap:wrap;gap:5px}
 .rw-ah-order-facts span{padding:3px 6px;border:1px solid rgba(255,255,255,.07);border-radius:5px;background:rgba(255,255,255,.02);font-size:9px;color:#aeb7c2}
 .rw-ah-order-match-list{display:flex;flex-direction:column;border:1px solid var(--ah-line);border-radius:8px;overflow:hidden}

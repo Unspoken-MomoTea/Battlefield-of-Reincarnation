@@ -210,6 +210,7 @@ export function workshopTemplate(version) {
             <div class="rw-ah-orders-actions">
               <button class="rw-button primary" data-action="market-order-create" type="button">创建求购</button>
               <button class="rw-button" data-action="market-swap-create" type="button">创建交换</button>
+              <button class="rw-button" data-action="market-order-examples" type="button" hidden>查看示例</button>
               <button class="rw-button" data-action="market-order-refresh" type="button">刷新</button>
             </div>
           </div>
@@ -219,7 +220,7 @@ export function workshopTemplate(version) {
               <div class="rw-ah-empty-inspector">
                 <div class="rw-ah-empty-icon">◇</div>
                 <strong>选择一个订单</strong>
-                <span>求购单可以直接交付符合条件的资产；交换单按双方资产完成互换。</span>
+                <span>公开的求购与交换仅在此展示。测试版可点「查看示例」，预览自由协商流程；示例不可交易。</span>
               </div>
             </aside>
           </div>

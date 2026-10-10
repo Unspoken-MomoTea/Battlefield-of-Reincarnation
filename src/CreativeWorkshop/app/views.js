@@ -50,6 +50,7 @@ export function createWorkshopViews(context) {
     market: createMarketView({
       ...common,
       marketService: context.marketService,
+      showExamples: context.marketPreviewExamples === true,
       getAuth: context.getAuth,
       doc: context.doc,
     }),

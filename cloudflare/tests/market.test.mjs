@@ -1495,3 +1495,47 @@ test('every save independently gets ten slots, even when another save holds ten 
   assert.equal((await jsonRequest(testEnv, '/api/market/me', { headers: first })).body.active_listing_count, 10);
   assert.equal((await jsonRequest(testEnv, '/api/market/me', { headers: second })).body.active_listing_count, 10);
 });
+
+test('one-time staging stock reset hides all old auctions but preserves workshop users and unsettled claims', async () => {
+  const testEnv = env();
+  const seller = createUser(testEnv, 'reset-seller', 'Reset Seller');
+  const buyer = createUser(testEnv, 'reset-buyer', 'Reset Buyer');
+  const sellerHeaders = authHeaders(testEnv, seller, 'reset-seller-token');
+  const buyerHeaders = authHeaders(testEnv, buyer, 'reset-buyer-token');
+  const oldListing = await jsonRequest(testEnv, '/api/market/listings', {
+    method: 'POST', headers: sellerHeaders, body: JSON.stringify({
+      id: 'reset-old-listing',
+      asset: {kind:'item',name:'旧测试物品',quantity:2,data:{名称:'旧测试物品',品质:'E',数量:2}},
+      unit_price:42,
+    }),
+  });
+  assert.equal(oldListing.response.status, 201);
+  const trade = await jsonRequest(testEnv, '/api/market/listings/reset-old-listing/buy', {
+    method: 'POST', headers: buyerHeaders,
+    body: JSON.stringify({trade_id:'reset-old-pending-trade',quantity:1}),
+  });
+  assert.equal(trade.response.status, 200);
+  const db = testEnv.DB.db;
+  const userCountBefore = db.prepare('SELECT COUNT(*) AS total FROM users').get().total;
+  const sellerBalanceBefore = (await jsonRequest(testEnv, '/api/market/me', {headers:sellerHeaders})).body.wallet.balance;
+  const stockBefore = db.prepare("SELECT COUNT(*) AS total FROM market_listings WHERE status = 'active' AND remaining_quantity > 0").get().total;
+  assert.ok(stockBefore > 0);
+  const sql = readFileSync(new URL('../migrations/0023_deactivate_old_market_inventory.sql', import.meta.url), 'utf8');
+  db.exec('PRAGMA foreign_keys = ON');
+  db.exec(sql);
+  assert.equal(db.prepare("SELECT COUNT(*) AS total FROM market_listings WHERE status = 'active' AND remaining_quantity > 0").get().total, 0);
+  assert.equal(db.prepare('SELECT COUNT(*) AS total FROM market_catalog WHERE total_stock > 0').get().total, 0);
+  assert.equal(db.prepare('SELECT COUNT(*) AS total FROM users').get().total, userCountBefore);
+  assert.equal(db.prepare("SELECT COUNT(*) AS total FROM market_trades WHERE id = 'reset-old-pending-trade'").get().total, 1);
+  assert.equal((await jsonRequest(testEnv, '/api/market/me', {headers:sellerHeaders})).body.wallet.balance, sellerBalanceBefore);
+  // A freshly deployed Worker has a new D1 binding; only its six legitimate
+  // daily credential listings may reappear, and each starts at ten.
+  const fresh = { ...testEnv, DB: new Proxy(testEnv.DB, {}) };
+  const after = await jsonRequest(fresh, '/api/market/listings?limit=60');
+  assert.equal(after.response.status, 200);
+  assert.equal(after.body.items.length, 6);
+  assert.ok(after.body.items.every(item => item.id.startsWith('system:credential:') && item.remaining_quantity === 10));
+  assert.equal(after.body.items.some(item => item.id === 'reset-old-listing'), false);
+  const buyerState = await jsonRequest(fresh, '/api/market/me', {headers:buyerHeaders});
+  assert.equal(buyerState.body.pending_deliveries.length, 1, 'pending claims are still recoverable');
+});

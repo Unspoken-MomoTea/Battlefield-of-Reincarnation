@@ -1778,3 +1778,54 @@ test('negotiated order receipts only disappear after all claimants confirmed',as
   assert.equal(testEnv.DB.db.prepare("SELECT COUNT(*) AS count FROM market_deal_transfers WHERE deal_id='clean:deal'").get().count,0);
   assert.equal(testEnv.DB.db.prepare("SELECT COUNT(*) AS count FROM market_deals WHERE id='clean:deal'").get().count,0);
 });
+
+test('My Orders endpoint always returns a parseable JSON response for empty and populated saves', async () => {
+  const testEnv = env();
+  const owner = createUser(testEnv, 'deal-me-json-owner', 'My Orders Owner');
+  const other = createUser(testEnv, 'deal-me-json-other', 'Other Save');
+  const ownerHeaders = authHeaders(testEnv, owner, 'deal-me-json-owner-token', 'save:main');
+  const alternateHeaders = authHeaders(testEnv, owner, 'deal-me-json-other-token', 'save:alternate');
+  const guestHeaders = authHeaders(testEnv, other, 'deal-me-json-guest-token', 'save:guest');
+
+  async function me(headers) {
+    const response = await handleRequest(
+      new Request('https://workshop.example/api/market/deals/me', { headers }),
+      testEnv,
+    );
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get('content-type') || '', /application\/json/u);
+    // This is the exact browser failure before the fix:
+    // response.json() threw "Unexpected end of JSON input" on an empty body.
+    const body = await response.json();
+    assert.ok(Array.isArray(body.deals));
+    assert.ok(Array.isArray(body.my_bids));
+    assert.ok(Array.isArray(body.pending_deal_transfers));
+    return body;
+  }
+
+  assert.deepEqual(await me(ownerHeaders), {
+    deals: [], my_bids: [], pending_deal_transfers: [],
+  });
+
+  const created = await jsonRequest(testEnv, '/api/market/deals', {
+    method: 'POST', headers: ownerHeaders, body: JSON.stringify({
+      id: 'deal:me-json-test', title: '寻找可治疗伙伴', wanted: '无需同名，实际展示能力',
+      offer: { coins: 99 }, duration_hours: 24,
+    }),
+  });
+  assert.equal(created.response.status, 201);
+  const posted = await me(ownerHeaders);
+  assert.equal(posted.deals.length, 1);
+  assert.equal(posted.deals[0].id, 'deal:me-json-test');
+  assert.equal((await me(alternateHeaders)).deals.length, 0, 'other save must not see this order');
+
+  const bid = await jsonRequest(testEnv, '/api/market/deals/deal%3Ame-json-test/bids', {
+    method: 'POST', headers: guestHeaders, body: JSON.stringify({
+      id: 'bid:me-json-test', offer: { coins: 10 }, note: '申请参加',
+    }),
+  });
+  assert.equal(bid.response.status, 201);
+  const guestState = await me(guestHeaders);
+  assert.equal(guestState.my_bids.length, 1);
+  assert.equal(guestState.my_bids[0].id, 'bid:me-json-test');
+});

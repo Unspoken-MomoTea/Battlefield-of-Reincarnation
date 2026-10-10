@@ -924,9 +924,13 @@ test('grouped catalog purchase atomically spans price levels and is idempotent',
   assert.equal(purchase.body.purchase.total_price, 105);
   assert.equal(purchase.body.trades.length, 2);
   assert.deepEqual(
-    purchase.body.trades.map(trade => [trade.unit_price, trade.quantity]),
-    [[25, 3], [30, 1]],
+    purchase.body.trades.map(trade => [trade.unit_price, trade.quantity, trade.market_fee, trade.seller_proceeds]),
+    [[25, 3, 0, 75], [30, 1, 0, 30]],
   );
+  const sellerAAccount = await jsonRequest(testEnv, '/api/market/me', { headers: sellerAHeaders });
+  const sellerBAccount = await jsonRequest(testEnv, '/api/market/me', { headers: sellerBHeaders });
+  assert.equal(sellerAAccount.body.wallet.balance, 30);
+  assert.equal(sellerBAccount.body.wallet.balance, 75);
 
   const remainingA = testEnv.DB.db.prepare(
     'SELECT remaining_quantity FROM market_listings WHERE id = ?',

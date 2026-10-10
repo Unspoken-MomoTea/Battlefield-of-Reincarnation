@@ -315,3 +315,14 @@ export const MARKET_CSS = `
   .rw-ah-transaction-row{align-items:flex-start;flex-direction:column}
 }
 `;
+
+.rw-ah-deal-asset-picks,.rw-ah-deal-asset-rows{display:flex;flex-direction:column;gap:7px}
+.rw-ah-deal-asset-row{display:grid;grid-template-columns:minmax(0,1fr) 75px auto;gap:6px}
+.rw-ah-deal-offer,.rw-ah-deal-bid,.rw-ah-deal-claim{padding:9px;border:1px solid var(--ah-line);border-radius:8px;background:rgba(255,255,255,.018);display:flex;flex-direction:column;gap:6px}
+.rw-ah-deal-bid{margin:8px 0}
+.rw-ah-deal-asset-detail{border:1px solid var(--ah-line);padding:5px 8px;border-radius:5px}
+.rw-ah-deal-asset-detail summary{cursor:pointer;color:#cbd5e1;font-size:11px}
+.rw-ah-deal-asset-detail pre{font-size:10px;white-space:pre-wrap;overflow-wrap:anywhere;color:#9ba7b7}
+.rw-ah-deal-claim{flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.rw-ah-order-detail-section{padding:8px 0;font-size:11px;color:#d4b96e;font-weight:700}
+@media(max-width:650px){.rw-ah-deal-asset-row{grid-template-columns:minmax(0,1fr) 65px auto}}

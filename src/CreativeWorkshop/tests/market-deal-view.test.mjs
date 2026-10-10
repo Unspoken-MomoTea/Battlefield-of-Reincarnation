@@ -6,7 +6,7 @@ class Node {
   constructor(tag='div',name='',text=''){
     this.tag=tag;this.textContent=String(text);this.children=[];
     this.hidden=false;this.dataset={};this.handlers={};this.value='';
-    this.classes=new Set(name.split(/\\s+/u).filter(Boolean));
+    this.classes=new Set(name.split(/\s+/u).filter(Boolean));
     this.classList={
       add:key=>this.classes.add(key),
       toggle:(key,force)=>{if(force)this.classes.add(key);else this.classes.delete(key);},
@@ -69,7 +69,7 @@ test('public negotiated orders and private bids are presented under All/My tabs'
   assert.equal(nodes.marketSwapCreate.hidden,true);
   assert.equal(nodes.marketOrderExamples.hidden,true);
   assert.equal(nodes.marketOrdersList.children[0].children[0].children[0].textContent,'招募一名治疗伙伴');
-  assert.equal(nodes.marketOrdersEditor.children[0].children[0].textContent,'招募一名治疗伙伴');
+  assert.equal(nodes.marketOrdersEditor.children[0].children[0].children[0].textContent,'招募一名治疗伙伴');
   nodes.marketOrderViews[1].click();
   await flush();
   assert.equal(readMy,1);

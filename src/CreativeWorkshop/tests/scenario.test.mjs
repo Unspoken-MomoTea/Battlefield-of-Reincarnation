@@ -40,7 +40,7 @@ test('宏观节点由事件名称、日期与前因自动排期，正文不写�
   const entries=normalizeWorldbookArtifact(bundle[0].content);
   assert.deepEqual(entries.map(e=>e.position.order),[200,201,210,211,212,213,214]);
   assert.ok(entries.every(e=>e.position.type==='before_character_definition'));
-  assert.ok(entries.every(e=>e.content.includes('getMessageVar("stat_data"'))));
+  assert.ok(entries.every(e=>e.content.includes('getMessageVar("stat_data"')));
   assert.ok(entries[3].content.includes('因果轨道.下一节点'));
   assert.ok(entries[5].content.includes('洛丹伦'));
 });

@@ -96,9 +96,17 @@
         repairMacroPredecessors(stat) {
             const state=stat?.世界?.[PATH],orbit=stat?.世界?.因果轨道||{},patches=[]; if(!state)return patches;
             const stages=storyStages(orbit.故事线).filter(name=>state.事件?.[name]?.分类==='宏观节点'&&state.事件[name].状态!=='已取消');
+            // 不用自动补的线性前因反向覆盖既有因果：若会产生循环，则保留明确记录。
+            const dependsOn=(name,target,seen=new Set())=>{
+                if(name===target)return true;
+                if(seen.has(name))return false;
+                seen.add(name);
+                const parents=state.事件?.[name]?.前因;
+                return Array.isArray(parents)&&parents.some(parent=>dependsOn(parent,target,seen));
+            };
             for(let i=1;i<stages.length;i++){
                 const prev=stages[i-1],name=stages[i],event=state.事件[name],parents=Array.isArray(event.前因)?event.前因:[];
-                if(!parents.includes(prev)){
+                if(!parents.includes(prev)&&!dependsOn(prev,name)){
                     event.前因=[...parents,prev];
                     patches.push({op:'replace',path:pointer(['世界',PATH,'事件',name,'前因']),value:copy(event.前因)});
                 }

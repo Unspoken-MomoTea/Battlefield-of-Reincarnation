@@ -125,38 +125,46 @@
         }
         repairProjection(stat) {
             const orbit=stat.世界.因果轨道||(stat.世界.因果轨道={当前阶段:'',故事线:'',下一节点:'',偏移记录:{}});
-            const existing=storyStages(orbit.故事线);
-            const macroEntries=Object.entries(stat.世界[PATH]?.事件||{})
-                .filter(([,e])=>e.分类==='宏观节点'&&e.状态!=='已取消')
+            const records=stat.世界[PATH]?.事件||{};
+            // 无宏观事件时可能是人工故事线或刚进入的世界，不擅自覆盖。
+            if(!Object.values(records).some(e=>e?.分类==='宏观节点'))return [];
+            const ordered=Object.entries(records)
+                .filter(([,e])=>e?.分类==='宏观节点'&&['待发生','进行中'].includes(e.状态))
                 .map((item,index)=>({item,index,key:worldDateKey(item[1].时间||item[1].开始时间)}))
                 .sort((a,b)=>(a.key??Infinity)-(b.key??Infinity)||a.index-b.index)
-                .map(x=>x.item);
-            const macroNames=new Set(macroEntries.map(([name])=>name));
-            const patches=[];
-            let line=[];
-            // 完成/取消的旧节点不能永久占据 3～5 条宏观窗口，优先跟随当前仍开放的节点。
-            const openNames=macroEntries.filter(([,e])=>['待发生','进行中'].includes(e.状态)).map(([name])=>name);
-            const existingValid=existing.length>=3&&existing.length<=5
-                &&existing.every((name,index)=>name===openNames[index]);
-            if(existingValid)line=existing.slice(0,5);
-            else {
-                // 因果轨道只能由宏观事件投影；事实不足时等待模型补齐，不拿近期事件凑骨架。
-                if(openNames.length<3)return patches;
-                const chosen=[],seen=new Set();
-                const take=name=>{if(name&&macroNames.has(name)&&!seen.has(name)){seen.add(name);chosen.push(name);}};
-                if(openNames.includes(orbit.当前阶段))take(orbit.当前阶段);
-                for(const name of openNames)take(name);
-                if(chosen.length<3)return patches;
-                line=chosen.slice(0,5);
-                const story=line.join(' -> ');
-                if(orbit.故事线!==story){orbit.故事线=story;patches.push({op:'replace',path:'/世界/因果轨道/故事线',value:story});}
+                .map(x=>x.item[0]);
+            const openSet=new Set(ordered);
+            const previous=storyStages(orbit.故事线);
+            // 已确认的因果改序优先：仅移除失效节点，缺位时才在末尾补后续宏观节点。
+            const retained=[...new Set(previous.filter(name=>openSet.has(name)))].slice(0,5);
+            const intact=retained.length===previous.length&&retained.length>=3&&retained.length<=5;
+            const line=intact?retained.slice():retained;
+            if(!intact)for(const name of ordered){
+                if(line.length>=5)break;
+                if(!line.includes(name))line.push(name);
             }
-            const nextName=line.find(name=>(stat.世界[PATH].事件[name]||{}).状态==='待发生')||'';
-            if(orbit.下一节点!==nextName){orbit.下一节点=nextName;patches.push({op:'replace',path:'/世界/因果轨道/下一节点',value:nextName});}
-            const current=line.find(name=>(stat.世界[PATH].事件[name]||{}).状态==='进行中');
-            if(current&&(!orbit.当前阶段||orbit.当前阶段==='待初始化'||(macroNames.has(orbit.当前阶段)&&orbit.当前阶段!==current))){
-                orbit.当前阶段=current;
-                patches.push({op:'replace',path:'/世界/因果轨道/当前阶段',value:current});
+            const patches=[];
+            const story=line.join(' -> ');
+            if(orbit.故事线!==story){
+                orbit.故事线=story;
+                patches.push({op:'replace',path:'/世界/因果轨道/故事线',value:story});
+            }
+            const waiting=name=>records[name]?.状态==='待发生';
+            const nextName=line.includes(orbit.下一节点)&&waiting(orbit.下一节点)
+                ?orbit.下一节点
+                :(line.find(waiting)||'');
+            if(orbit.下一节点!==nextName){
+                orbit.下一节点=nextName;
+                patches.push({op:'replace',path:'/世界/因果轨道/下一节点',value:nextName});
+            }
+            const stageName=String(orbit.当前阶段||'');
+            const stageRecord=records[stageName];
+            const staleStage=stageRecord?.分类==='宏观节点'&&['已完成','已取消'].includes(stageRecord.状态);
+            const activeStage=line.find(name=>records[name]?.状态==='进行中')||'';
+            // 只补空阶段或替换已失效事件，保留 AI 写入的现实局势摘要。
+            if((!stageName||stageName==='待初始化'||staleStage)&&orbit.当前阶段!==(activeStage||'')){
+                orbit.当前阶段=activeStage;
+                patches.push({op:'replace',path:'/世界/因果轨道/当前阶段',value:activeStage});
             }
             return patches;
         }

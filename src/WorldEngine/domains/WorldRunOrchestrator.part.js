@@ -32,7 +32,9 @@
                     recoveryStat.世界[PATH]=Object.assign(emptyState(),recoveryStat.世界[PATH]||{});
                     normalizeBackendState(recoveryStat);
                     const recoveryTimeline=this.services.timelinePolicy.timelineState(recoveryStat);
-                    const needsMacroRepair=this.config.requireMacroBackbone!==false&&(recoveryTimeline.需要补充远期||recoveryTimeline.因果轨道需重建);
+                    const needsMacroRepair=this.config.requireMacroBackbone!==false&&(
+                        recoveryTimeline.宏观节点数===0||(!recoveryTimeline.需要补充远期&&recoveryTimeline.因果轨道需重建)
+                    ); // 有1～2个开放节点时等待下一次正常推进补充，不为数量不足重复请求本楼层。
                     const needsScheduleRepair=unscheduledEvents(recoveryStat).length>0;
                     const needsLifecycleRepair=staleActiveEvents(recoveryStat).length>0||temporalAnomalies(recoveryStat).length>0;
                     const needsAlienRepair=activeAlienActivityRequirements(recoveryStat).some(item=>{

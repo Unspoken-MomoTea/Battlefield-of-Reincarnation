@@ -40,10 +40,9 @@
         ensureMacroBackbone(next,timeline,required=true) {
             if(required&&timeline?.需要补充远期){
                 const allMacro=Object.entries(next?.世界?.[PATH]?.事件||{}).filter(([,e])=>e.分类==='宏观节点'&&e.状态!=='已取消');
-                const activeMacro=allMacro.filter(([,e])=>e.状态==='进行中');
-                const futureMacro=allMacro.filter(([,e])=>e.状态==='待发生');
                 const openMacro=allMacro.filter(([,e])=>['进行中','待发生'].includes(e.状态));
-                if(openMacro.length<3)throw new Error('宏观事件不足：需要至少3个可推进宏观节点（进行中+待发生），当前仅'+openMacro.length+'个（进行中'+activeMacro.length+'个，待发生'+futureMacro.length+'个）');
+                // 数量不足只作为下一轮规划提示：不能因缺少宏观节点否决已验收的事件更新。
+                if(openMacro.length<3)return this.activityPolicy.ensureDelivery(next,timeline?.世界活动要求);
                 const stages=this.timeline.storyStages(next?.世界?.因果轨道?.故事线);
                 const names=new Set(allMacro.map(([name])=>name));
                 if(stages.length<3||stages.length>5||stages.some(name=>!names.has(name)))throw new Error('因果轨道未形成有效宏观投影：请用已建立的宏观节点生成3~5节点故事线');

@@ -125,7 +125,7 @@
     async function loadOpeningScenarios(hostData = undefined) {
         try {
             const bridged = hostData === undefined ? await loadHostOpeningData() : hostData;
-            let rows = bridged?.scenarios;
+            let rows = bridged && bridged.scenarios;
             if (!rows) {
                 const db = await openingDb();
                 const projects = await new Promise((resolve,reject) => {
@@ -134,12 +134,12 @@
                     request.onerror=()=>reject(request.error);
                 });
                 db.close();
-                rows = projects.filter(project=>project?.applied).flatMap(project=>(project.bundle?.artifacts||[])
-                    .filter(artifact=>artifact?.kind==='data'&&artifact.content?.kind==='scenario')
+                rows = projects.filter(project=>project && project.applied).flatMap(project=>((project.bundle && project.bundle.artifacts)||[])
+                    .filter(artifact=>artifact && artifact.kind==='data'&&artifact.content && artifact.content.kind==='scenario')
                     .map(artifact=>({ ...structuredClone(artifact.content), id:'workshop:scenario:'+project.id,
                         sourceProjectId:project.id,sourceProjectName:project.name, name:artifact.content.world })));
             }
-            openingScenarios = rows.filter(row=>row?.world && ['both','multi','single'].includes(row.mode||'both'));
+            openingScenarios = rows.filter(row=>row && row.world && ['both','multi','single'].includes(row.mode||'both'));
             DB.plots = DB.plots.filter(plot=>!plot._sourceProjectId);
             for (const row of openingScenarios.filter(row=>row.mode!=='single')) {
                 DB.plots.push({ id:row.id,cat:'workshop',name:'【'+row.world+'】',type:'工坊副本 · '+(row.sourceProjectName||row.world),

@@ -1106,6 +1106,7 @@
     let currentCoins = DB.initSpaceCoins;
     let selectedItems = new Set();
     let selectedPlot = null;
+    let selectedSingleScenario = null;
     let selectedPartner = null;
     let selectedOpeningCharacter = null;
     let selectedOpeningPartner = null;
@@ -1114,6 +1115,7 @@
     let partnerMode = 'custom';
     let openingAssetDefaultsApplied = false;
     let openingAssets = [];
+    let openingScenarios = [];
     let customItems = [];
     let activeItemTab = 'equipment';
     let activeSubCategory = null; 
@@ -1168,7 +1170,8 @@
         if (!data || typeof data !== 'object') return null;
         return {
             assets: Array.isArray(data.assets) ? structuredClone(data.assets) : [],
-            storeCatalogs: Array.isArray(data.storeCatalogs) ? structuredClone(data.storeCatalogs) : []
+            storeCatalogs: Array.isArray(data.storeCatalogs) ? structuredClone(data.storeCatalogs) : [],
+            scenarios: Array.isArray(data.scenarios) ? structuredClone(data.scenarios) : []
         };
     }
 
@@ -1219,6 +1222,39 @@
             request.onsuccess = () => resolve(request.result);
             request.onerror = () => reject(request.error);
         });
+    }
+    async function loadOpeningScenarios(hostData = undefined) {
+        try {
+            const bridged = hostData === undefined ? await loadHostOpeningData() : hostData;
+            let rows = bridged?.scenarios;
+            if (!rows) {
+                const db = await openingDb();
+                const projects = await new Promise((resolve,reject) => {
+                    const request = db.transaction('installed_projects','readonly').objectStore('installed_projects').getAll();
+                    request.onsuccess=()=>resolve(request.result||[]);
+                    request.onerror=()=>reject(request.error);
+                });
+                db.close();
+                rows = projects.filter(project=>project?.applied).flatMap(project=>(project.bundle?.artifacts||[])
+                    .filter(artifact=>artifact?.kind==='data'&&artifact.content?.kind==='scenario')
+                    .map(artifact=>({ ...structuredClone(artifact.content), id:'workshop:scenario:'+project.id,
+                        sourceProjectId:project.id,sourceProjectName:project.name, name:artifact.content.world })));
+            }
+            openingScenarios = rows.filter(row=>row?.world && ['both','multi','single'].includes(row.mode||'both'));
+            DB.plots = DB.plots.filter(plot=>!plot._sourceProjectId);
+            for (const row of openingScenarios.filter(row=>row.mode!=='single')) {
+                DB.plots.push({ id:row.id,cat:'workshop',name:'【'+row.world+'】',type:'工坊副本 · '+(row.sourceProjectName||row.world),
+                    rank:row.rank||'Ⅲ',tier:row.tier||'F~D',eco:'solo',aliens:0,ecology:'自由探索',
+                    time:row.time||'',deviation:row.stage||'',story:row.story||'',next:row.next||'',
+                    law:row.laws||'',identity:row.identity||'旅行者',location:row.location||'',
+                    _sourceProjectId:row.sourceProjectId });
+            }
+            if(selectedPlot&&!DB.plots.some(plot=>plot.id===selectedPlot))selectedPlot=null;
+            if(selectedSingleScenario&&!openingScenarios.some(s=>s.id===selectedSingleScenario))selectedSingleScenario=null;
+            if (!DB.plotCategories.some(cat=>cat.key==='workshop'))DB.plotCategories.splice(1,0,{key:'workshop',label:'📚 工坊副本'});
+            if($('plot-tabs')) {renderPlotTabs();renderPlots();}
+            if($('sw-scenario')) renderSingleScenarioOptions();
+        } catch(error) {console.warn('[轮回战场开局] 读取工坊副本失败',error);}
     }
     async function loadOpeningStoreCatalogs(changedProjectId = '', hostData = undefined) {
         try {
@@ -1521,7 +1557,7 @@
         showToast('已选择开局伙伴：'+(asset.name||'未命名')+'（-'+cost+' 空间币）');
     }
 
-    const openingDataReady = Promise.all([loadOpeningAssets(), loadOpeningStoreCatalogs()]).then(() => {
+    const openingDataReady = Promise.all([loadOpeningAssets(), loadOpeningStoreCatalogs(), loadOpeningScenarios()]).then(() => {
         renderSubCategories(); renderRarityFilter(); renderItems();
     });
 
@@ -1536,7 +1572,8 @@
             const projectId = String(data.detail && data.detail.projectId || '');
             void Promise.all([
                 loadOpeningAssets(bridged),
-                loadOpeningStoreCatalogs(projectId, bridged)
+                loadOpeningStoreCatalogs(projectId, bridged),
+                loadOpeningScenarios(bridged)
             ]).then(() => {
                 renderSubCategories(); renderRarityFilter(); renderItems();
                 renderSelectedPanel();
@@ -1561,6 +1598,9 @@
                 }).catch(error => {
                     console.warn('[轮回战场开局] 实时刷新创意工坊角色/伙伴失败', error);
                 });
+            });
+            root.addEventListener('reincarnation:opening-scenarios-changed', () => {
+                void loadOpeningScenarios().then(()=>{renderPlotTabs();renderPlots();updateBgSummary();});
             });
             root.addEventListener('reincarnation:opening-store-changed', event => {
                 const projectId = String(event && event.detail && event.detail.projectId || '');
@@ -2103,6 +2143,7 @@
                 <span class="sw-banner-text"><strong>单一世界模式已启用</strong> —— 点击此选项卡即自动开启。系统将把你直接投放至下方指定的世界，跳过多元世界抽取。</span>
             </div>
             <div class="grid-2">
+                <div class="form-group"><label>工坊副本预设（可选）</label><select id="sw-scenario" class="form-control" onchange="chooseSingleWorldScenario(this.value)"><option value="">手动填写世界</option></select></div>
                 <div class="form-group"><label>世界名称 (穿越作品名)</label><input type="text" id="sw-name" class="form-control" placeholder="如：斩赤瞳世界"></div>
                 <div class="form-group"><label>时间锚点</label><input type="text" id="sw-time" class="form-control" placeholder="如：第四次圣杯战争中期"></div>
             </div>
@@ -2111,6 +2152,7 @@
             <div class="form-group"><label>主神任务</label><textarea id="sw-goal" class="form-control" rows="3" placeholder="根据阵营与时间锚点生成 2-4 个平等层级关键任务"></textarea></div>
         `;
         refreshCustomTypeOptions();
+        renderSingleScenarioOptions();
     }
     function refreshCustomTypeOptions() {
         const cat = DB.itemCategories.find(c => c.key === activeItemTab);
@@ -2269,6 +2311,28 @@
     function renderPlotTabs() {
         $('plot-tabs').innerHTML = DB.plotCategories.map(c => `
             <button class="tab-button ${c.key===activePlotCat?'active':''}" onclick="switchPlotCat('${c.key}')">${c.label}</button>`).join('');
+    }
+    function renderSingleScenarioOptions() {
+        const control = $('sw-scenario');
+        if (!control) return;
+        control.replaceChildren();
+        const manual = document.createElement('option');manual.value='';manual.textContent='手动填写世界';control.append(manual);
+        for(const row of openingScenarios.filter(row=>row.mode!=='multi')) {
+            const option=document.createElement('option');option.value=row.id;
+            option.textContent=(row.sourceProjectName||'工坊')+' · '+row.world;
+            control.append(option);
+        }
+        control.value=openingScenarios.some(row=>row.id===selectedSingleScenario)?selectedSingleScenario:'';
+    }
+    function chooseSingleWorldScenario(id) {
+        selectedSingleScenario = openingScenarios.some(row=>row.id===id&&row.mode!=='multi')?id:null;
+        const row=openingScenarios.find(item=>item.id===selectedSingleScenario);
+        if(row) {
+            const values={'sw-name':row.world,'sw-time':row.time,'sw-mainstate':row.stage,
+                'sw-identity':row.identity,'sw-goal':row.goal};
+            for(const [id,value] of Object.entries(values))if($(id))$(id).value=value||'';
+        }
+        updateBgSummary();
     }
     // 单一世界身份覆盖：进入单一世界把身份强切为「穿越者」并锁住下拉；离开则还原角色原始选择并解锁
     const IDENTITY_SINGLE_WORLD = '穿越者';
@@ -3038,7 +3102,17 @@
                     _set(c, 'stat_data.系统状态.是否在主神空间', false);
                     _set(c, 'stat_data.世界.时间', $('sw-time').value.trim());
                     _set(c, 'stat_data.世界.名称', $('sw-name').value.trim());
-                    _set(c, 'stat_data.世界.因果轨道', { 当前阶段: $('sw-mainstate').value.trim() || '未设定', 故事线: '', 下一节点: '', 偏移记录: {} });
+                    const scenario = openingScenarios.find(row=>row.id===selectedSingleScenario && row.mode!=='multi' && row.world===$('sw-name').value.trim());
+                    _set(c, 'stat_data.世界.因果轨道', {
+                        当前阶段: $('sw-mainstate').value.trim() || '未设定',
+                        故事线: scenario?.story || '', 下一节点: scenario?.next || '', 偏移记录: {}
+                    });
+                    if (scenario) {
+                        _set(c, 'stat_data.世界.地点', scenario.location || '');
+                        _set(c, 'stat_data.世界.位格', scenario.rank || 'Ⅲ');
+                        _set(c, 'stat_data.世界.难度', scenario.tier || 'F~D');
+                        _set(c, 'stat_data.世界.法则', parseOpeningWorldLaws(scenario.laws));
+                    }
                 } else if (selectedPlot) {
                     _set(c, 'stat_data.系统状态.是否在主神空间', false);
                     const p = DB.plots.find(x => x.id === selectedPlot);
@@ -3046,6 +3120,11 @@
                         // .match(/【(.*?)】/) 会提取出【】里面的内容
                         const cleanName = (p.name.match(/【(.*?)】/) || [])[1] || p.name;
                         _set(c, 'stat_data.世界.名称', cleanName);
+                        if (p._sourceProjectId) {
+                            _set(c, 'stat_data.世界.时间', p.time);
+                            _set(c, 'stat_data.世界.地点', p.location || '');
+                            _set(c, 'stat_data.世界.因果轨道', { 当前阶段:p.deviation, 故事线:p.story, 下一节点:p.next, 偏移记录:{} });
+                        }
                         // 世界位格(罗马数字 Ⅰ~Ⅸ), 与[InitVar]世界初始设定.yaml 字段对齐, 与【选择世界】正则保持同步
                         if (p.rank) _set(c, 'stat_data.世界.位格', p.rank);
                         // 综合难度(保留 tier 原始范围 F~E 原样入库, 不截断为单个字母), 与【选择世界】正则保持同步
@@ -3080,7 +3159,8 @@
 时间锚点: ${$('sw-time').value.trim() || '未设定'}
 主线状态: ${$('sw-mainstate').value.trim() || '未设定'}
 切入身份: ${$('sw-identity').value.trim() || '角色'}
-主神任务: ${$('sw-goal').value.trim() || '无'}`;
+主神任务: ${$('sw-goal').value.trim() || '无'}
+${openingScenarios.find(row=>row.id===selectedSingleScenario && row.world===$('sw-name').value.trim())?.story ? '默认宏观故事线: '+openingScenarios.find(row=>row.id===selectedSingleScenario).story : ''}`;
         } else if (selectedPlot) {
             const p = DB.plots.find(x => x.id === selectedPlot);
             if (p) {
@@ -3098,7 +3178,8 @@
 主线状态: ${p.deviation}
 世界法则: ${p.law}
 风险提示: ${p.risk}
-切入身份: ${p.identity}`;
+切入身份: ${p.identity}
+${p._sourceProjectId?'默认宏观故事线: '+p.story+'\\n下一节点: '+p.next:''}`;
             }
         }
 

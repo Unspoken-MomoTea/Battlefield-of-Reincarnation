@@ -5,6 +5,7 @@
     let currentCoins = DB.initSpaceCoins;
     let selectedItems = new Set();
     let selectedPlot = null;
+    let selectedSingleScenario = null;
     let selectedPartner = null;
     let selectedOpeningCharacter = null;
     let selectedOpeningPartner = null;
@@ -13,6 +14,7 @@
     let partnerMode = 'custom';
     let openingAssetDefaultsApplied = false;
     let openingAssets = [];
+    let openingScenarios = [];
     let customItems = [];
     let activeItemTab = 'equipment';
     let activeSubCategory = null; 
@@ -67,7 +69,8 @@
         if (!data || typeof data !== 'object') return null;
         return {
             assets: Array.isArray(data.assets) ? structuredClone(data.assets) : [],
-            storeCatalogs: Array.isArray(data.storeCatalogs) ? structuredClone(data.storeCatalogs) : []
+            storeCatalogs: Array.isArray(data.storeCatalogs) ? structuredClone(data.storeCatalogs) : [],
+            scenarios: Array.isArray(data.scenarios) ? structuredClone(data.scenarios) : []
         };
     }
 
@@ -118,6 +121,39 @@
             request.onsuccess = () => resolve(request.result);
             request.onerror = () => reject(request.error);
         });
+    }
+    async function loadOpeningScenarios(hostData = undefined) {
+        try {
+            const bridged = hostData === undefined ? await loadHostOpeningData() : hostData;
+            let rows = bridged?.scenarios;
+            if (!rows) {
+                const db = await openingDb();
+                const projects = await new Promise((resolve,reject) => {
+                    const request = db.transaction('installed_projects','readonly').objectStore('installed_projects').getAll();
+                    request.onsuccess=()=>resolve(request.result||[]);
+                    request.onerror=()=>reject(request.error);
+                });
+                db.close();
+                rows = projects.filter(project=>project?.applied).flatMap(project=>(project.bundle?.artifacts||[])
+                    .filter(artifact=>artifact?.kind==='data'&&artifact.content?.kind==='scenario')
+                    .map(artifact=>({ ...structuredClone(artifact.content), id:'workshop:scenario:'+project.id,
+                        sourceProjectId:project.id,sourceProjectName:project.name, name:artifact.content.world })));
+            }
+            openingScenarios = rows.filter(row=>row?.world && ['both','multi','single'].includes(row.mode||'both'));
+            DB.plots = DB.plots.filter(plot=>!plot._sourceProjectId);
+            for (const row of openingScenarios.filter(row=>row.mode!=='single')) {
+                DB.plots.push({ id:row.id,cat:'workshop',name:'【'+row.world+'】',type:'工坊副本 · '+(row.sourceProjectName||row.world),
+                    rank:row.rank||'Ⅲ',tier:row.tier||'F~D',eco:'solo',aliens:0,ecology:'自由探索',
+                    time:row.time||'',deviation:row.stage||'',story:row.story||'',next:row.next||'',
+                    law:row.laws||'',identity:row.identity||'旅行者',location:row.location||'',
+                    _sourceProjectId:row.sourceProjectId });
+            }
+            if(selectedPlot&&!DB.plots.some(plot=>plot.id===selectedPlot))selectedPlot=null;
+            if(selectedSingleScenario&&!openingScenarios.some(s=>s.id===selectedSingleScenario))selectedSingleScenario=null;
+            if (!DB.plotCategories.some(cat=>cat.key==='workshop'))DB.plotCategories.splice(1,0,{key:'workshop',label:'📚 工坊副本'});
+            if($('plot-tabs')) {renderPlotTabs();renderPlots();}
+            if($('sw-scenario')) renderSingleScenarioOptions();
+        } catch(error) {console.warn('[轮回战场开局] 读取工坊副本失败',error);}
     }
     async function loadOpeningStoreCatalogs(changedProjectId = '', hostData = undefined) {
         try {
@@ -420,7 +456,7 @@
         showToast('已选择开局伙伴：'+(asset.name||'未命名')+'（-'+cost+' 空间币）');
     }
 
-    const openingDataReady = Promise.all([loadOpeningAssets(), loadOpeningStoreCatalogs()]).then(() => {
+    const openingDataReady = Promise.all([loadOpeningAssets(), loadOpeningStoreCatalogs(), loadOpeningScenarios()]).then(() => {
         renderSubCategories(); renderRarityFilter(); renderItems();
     });
 
@@ -435,7 +471,8 @@
             const projectId = String(data.detail && data.detail.projectId || '');
             void Promise.all([
                 loadOpeningAssets(bridged),
-                loadOpeningStoreCatalogs(projectId, bridged)
+                loadOpeningStoreCatalogs(projectId, bridged),
+                loadOpeningScenarios(bridged)
             ]).then(() => {
                 renderSubCategories(); renderRarityFilter(); renderItems();
                 renderSelectedPanel();
@@ -460,6 +497,9 @@
                 }).catch(error => {
                     console.warn('[轮回战场开局] 实时刷新创意工坊角色/伙伴失败', error);
                 });
+            });
+            root.addEventListener('reincarnation:opening-scenarios-changed', () => {
+                void loadOpeningScenarios().then(()=>{renderPlotTabs();renderPlots();updateBgSummary();});
             });
             root.addEventListener('reincarnation:opening-store-changed', event => {
                 const projectId = String(event && event.detail && event.detail.projectId || '');

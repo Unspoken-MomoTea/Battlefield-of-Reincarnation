@@ -1,5 +1,6 @@
 import { listOpeningAssets } from '../../opening/character-assets/registry.js';
 import { listInstalledStoreCatalogs } from '../../opening/store/installed-catalogs.js';
+import { listInstalledScenarios } from '../../opening/scenarios/installed.js';
 
 export const OPENING_DATA_REQUEST = 'reincarnation:opening-data-request';
 export const OPENING_DATA_RESPONSE = 'reincarnation:opening-data-response';
@@ -80,18 +81,21 @@ export function bindOpeningDataBridge({
   host = globalThis.window,
   readAssets = listOpeningAssets,
   readStoreCatalogs = listInstalledStoreCatalogs,
+  readScenarios = listInstalledScenarios,
 } = {}) {
   if (!host?.addEventListener) return () => {};
   const clients = new Map();
 
   const snapshot = async () => {
-    const [assets, storeCatalogs] = await Promise.all([
+    const [assets, storeCatalogs, scenarios] = await Promise.all([
       readAssets(),
       readStoreCatalogs(),
+      readScenarios(),
     ]);
     return {
       assets: Array.isArray(assets) ? assets : [],
       storeCatalogs: Array.isArray(storeCatalogs) ? storeCatalogs : [],
+      scenarios: Array.isArray(scenarios) ? scenarios : [],
     };
   };
 
@@ -132,11 +136,13 @@ export function bindOpeningDataBridge({
   host.addEventListener('message', onMessage);
   host.addEventListener('reincarnation:opening-assets-changed', broadcast);
   host.addEventListener('reincarnation:opening-store-changed', broadcast);
+  host.addEventListener('reincarnation:opening-scenarios-changed', broadcast);
 
   return () => {
     host.removeEventListener?.('message', onMessage);
     host.removeEventListener?.('reincarnation:opening-assets-changed', broadcast);
     host.removeEventListener?.('reincarnation:opening-store-changed', broadcast);
+    host.removeEventListener?.('reincarnation:opening-scenarios-changed', broadcast);
     clients.clear();
   };
 }

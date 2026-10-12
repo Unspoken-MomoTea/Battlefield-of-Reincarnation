@@ -6,6 +6,7 @@ export const CATEGORY_LABELS = {
 export const PROJECT_KIND_LABELS = {
   extension: '扩展',
   store_catalog: '开局商店',
+  scenario: '副本',
   world_character: '世界书角色',
   opening_character: '开局角色',
   opening_partner: '开局伙伴',

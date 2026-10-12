@@ -103,6 +103,28 @@
         $('plot-tabs').innerHTML = DB.plotCategories.map(c => `
             <button class="tab-button ${c.key===activePlotCat?'active':''}" onclick="switchPlotCat('${c.key}')">${c.label}</button>`).join('');
     }
+    function renderSingleScenarioOptions() {
+        const control = $('sw-scenario');
+        if (!control) return;
+        control.replaceChildren();
+        const manual = document.createElement('option');manual.value='';manual.textContent='手动填写世界';control.append(manual);
+        for(const row of openingScenarios.filter(row=>row.mode!=='multi')) {
+            const option=document.createElement('option');option.value=row.id;
+            option.textContent=(row.sourceProjectName||'工坊')+' · '+row.world;
+            control.append(option);
+        }
+        control.value=openingScenarios.some(row=>row.id===selectedSingleScenario)?selectedSingleScenario:'';
+    }
+    function chooseSingleWorldScenario(id) {
+        selectedSingleScenario = openingScenarios.some(row=>row.id===id&&row.mode!=='multi')?id:null;
+        const row=openingScenarios.find(item=>item.id===selectedSingleScenario);
+        if(row) {
+            const values={'sw-name':row.world,'sw-time':row.time,'sw-mainstate':row.stage,
+                'sw-identity':row.identity,'sw-goal':row.goal};
+            for(const [id,value] of Object.entries(values))if($(id))$(id).value=value||'';
+        }
+        updateBgSummary();
+    }
     // 单一世界身份覆盖：进入单一世界把身份强切为「穿越者」并锁住下拉；离开则还原角色原始选择并解锁
     const IDENTITY_SINGLE_WORLD = '穿越者';
     function applySingleWorldIdentityOverride() {

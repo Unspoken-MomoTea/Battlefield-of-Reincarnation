@@ -160,6 +160,7 @@
                 <span class="sw-banner-text"><strong>单一世界模式已启用</strong> —— 点击此选项卡即自动开启。系统将把你直接投放至下方指定的世界，跳过多元世界抽取。</span>
             </div>
             <div class="grid-2">
+                <div class="form-group"><label>工坊副本预设（可选）</label><select id="sw-scenario" class="form-control" onchange="chooseSingleWorldScenario(this.value)"><option value="">手动填写世界</option></select></div>
                 <div class="form-group"><label>世界名称 (穿越作品名)</label><input type="text" id="sw-name" class="form-control" placeholder="如：斩赤瞳世界"></div>
                 <div class="form-group"><label>时间锚点</label><input type="text" id="sw-time" class="form-control" placeholder="如：第四次圣杯战争中期"></div>
             </div>
@@ -168,6 +169,7 @@
             <div class="form-group"><label>主神任务</label><textarea id="sw-goal" class="form-control" rows="3" placeholder="根据阵营与时间锚点生成 2-4 个平等层级关键任务"></textarea></div>
         `;
         refreshCustomTypeOptions();
+        renderSingleScenarioOptions();
     }
     function refreshCustomTypeOptions() {
         const cat = DB.itemCategories.find(c => c.key === activeItemTab);

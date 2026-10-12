@@ -191,7 +191,17 @@
                     _set(c, 'stat_data.系统状态.是否在主神空间', false);
                     _set(c, 'stat_data.世界.时间', $('sw-time').value.trim());
                     _set(c, 'stat_data.世界.名称', $('sw-name').value.trim());
-                    _set(c, 'stat_data.世界.因果轨道', { 当前阶段: $('sw-mainstate').value.trim() || '未设定', 故事线: '', 下一节点: '', 偏移记录: {} });
+                    const scenario = openingScenarios.find(row=>row.id===selectedSingleScenario && row.mode!=='multi' && row.world===$('sw-name').value.trim());
+                    _set(c, 'stat_data.世界.因果轨道', {
+                        当前阶段: $('sw-mainstate').value.trim() || '未设定',
+                        故事线: scenario?.story || '', 下一节点: scenario?.next || '', 偏移记录: {}
+                    });
+                    if (scenario) {
+                        _set(c, 'stat_data.世界.地点', scenario.location || '');
+                        _set(c, 'stat_data.世界.位格', scenario.rank || 'Ⅲ');
+                        _set(c, 'stat_data.世界.难度', scenario.tier || 'F~D');
+                        _set(c, 'stat_data.世界.法则', parseOpeningWorldLaws(scenario.laws));
+                    }
                 } else if (selectedPlot) {
                     _set(c, 'stat_data.系统状态.是否在主神空间', false);
                     const p = DB.plots.find(x => x.id === selectedPlot);
@@ -199,6 +209,11 @@
                         // .match(/【(.*?)】/) 会提取出【】里面的内容
                         const cleanName = (p.name.match(/【(.*?)】/) || [])[1] || p.name;
                         _set(c, 'stat_data.世界.名称', cleanName);
+                        if (p._sourceProjectId) {
+                            _set(c, 'stat_data.世界.时间', p.time);
+                            _set(c, 'stat_data.世界.地点', p.location || '');
+                            _set(c, 'stat_data.世界.因果轨道', { 当前阶段:p.deviation, 故事线:p.story, 下一节点:p.next, 偏移记录:{} });
+                        }
                         // 世界位格(罗马数字 Ⅰ~Ⅸ), 与[InitVar]世界初始设定.yaml 字段对齐, 与【选择世界】正则保持同步
                         if (p.rank) _set(c, 'stat_data.世界.位格', p.rank);
                         // 综合难度(保留 tier 原始范围 F~E 原样入库, 不截断为单个字母), 与【选择世界】正则保持同步
@@ -233,7 +248,8 @@
 时间锚点: ${$('sw-time').value.trim() || '未设定'}
 主线状态: ${$('sw-mainstate').value.trim() || '未设定'}
 切入身份: ${$('sw-identity').value.trim() || '角色'}
-主神任务: ${$('sw-goal').value.trim() || '无'}`;
+主神任务: ${$('sw-goal').value.trim() || '无'}
+${openingScenarios.find(row=>row.id===selectedSingleScenario && row.world===$('sw-name').value.trim())?.story ? '默认宏观故事线: '+openingScenarios.find(row=>row.id===selectedSingleScenario).story : ''}`;
         } else if (selectedPlot) {
             const p = DB.plots.find(x => x.id === selectedPlot);
             if (p) {
@@ -251,7 +267,8 @@
 主线状态: ${p.deviation}
 世界法则: ${p.law}
 风险提示: ${p.risk}
-切入身份: ${p.identity}`;
+切入身份: ${p.identity}
+${p._sourceProjectId?'默认宏观故事线: '+p.story+'\\n下一节点: '+p.next:''}`;
             }
         }
 

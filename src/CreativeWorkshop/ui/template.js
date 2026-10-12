@@ -324,7 +324,7 @@ export function workshopTemplate(version) {
 
               <div class="rw-publish-step-title">
                 <span>02</span>
-                <div><strong>分类与标签</strong><small>统一选择扩展、角色或开局商店；角色再选择子类型。</small></div>
+                <div><strong>分类与标签</strong><small>统一选择扩展、角色、开局商店或副本；角色再选择子类型。</small></div>
               </div>
 
               <label class="rw-field">
@@ -333,6 +333,7 @@ export function workshopTemplate(version) {
                   <option value="extension">扩展</option>
                   <option value="character">角色</option>
                   <option value="store_catalog">开局商店</option>
+                  <option value="scenario">副本</option>
                 </select>
                 <small>分类统一在这里选择；只有“角色”会继续出现角色子类型。</small>
               </label>

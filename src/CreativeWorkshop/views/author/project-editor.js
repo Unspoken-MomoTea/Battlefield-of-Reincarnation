@@ -261,12 +261,13 @@ export function createAuthorProjectEditor({
     const modeLabels = {
       extension: '通用扩展',
       store_catalog: '开局商店',
+      scenario: '副本',
       world_character: '世界书角色',
       opening_character: '开局角色',
       opening_partner: '开局伙伴',
     };
     const categoryDisplay = element('input', 'rw-input');
-    categoryDisplay.value = publishMode === 'store_catalog'
+    categoryDisplay.value = publishMode === 'scenario' ? '副本' : publishMode === 'store_catalog'
       ? '开局商店'
       : publishMode === 'extension'
         ? '扩展'
@@ -301,6 +302,7 @@ export function createAuthorProjectEditor({
       opening_character: ['开局角色数据', '直接修改原始构筑，不需要上传 JSON 文件。'],
       opening_partner: ['开局伙伴数据', '直接修改伙伴原始构筑与人设，并可选附带角色世界书。'],
       store_catalog: ['开局商店内容', '直接维护装备、道具与技能目录。'],
+      scenario: ['副本资料', '直接编辑世界初始设定、剧情事件与 EJS 自动筛选资料。'],
     }[publishMode];
     step3.innerHTML = `<span>03</span><div><strong>${stepCopy[0]}</strong><small>${stepCopy[1]}</small></div>`;
     right.appendChild(step3);

@@ -204,6 +204,7 @@ export async function applyProject({ adapter, storage }, projectId) {
       applyError: '',
     };
     await storage.putInstalledProject(next);
+    try {globalThis.window?.dispatchEvent?.(new CustomEvent('reincarnation:opening-scenarios-changed',{detail:{projectId:installed.id,action:'apply'}}));}catch{}
     return next;
   } catch (error) {
     const rollbackErrors = await restoreInstallSnapshot(adapter, state);

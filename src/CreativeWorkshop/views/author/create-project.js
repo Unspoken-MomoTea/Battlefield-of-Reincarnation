@@ -77,6 +77,7 @@ export function bindCreateProjectFlow({
       opening_character: ['开局角色', '填写Ⅰ-Ⅲ阶角色资料、1项血统和最多2项技能。'],
       opening_partner: ['开局伙伴', '填写Ⅰ-Ⅲ阶伙伴资料、1项血统和最多2项技能；可选附带角色世界书。'],
       store_catalog: ['开局商店', '逐项添加装备、道具或技能；不需要填写 JSON。'],
+      scenario: ['副本编辑器', '填写初始世界与宏观故事线；资料自动生成 200～300 顺序段的 EJS 世界书。'],
     }[mode] || ['作品内容', '填写当前作品内容。'];
     if (contentTitle) contentTitle.textContent = copy[0];
     if (contentHelp) contentHelp.textContent = copy[1];

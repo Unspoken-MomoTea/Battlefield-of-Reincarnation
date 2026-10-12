@@ -1,4 +1,5 @@
 import { worldCharacterTemplate } from './publish-templates.js';
+import { createScenarioEditor } from './scenario-editor.js';
 
 const OPENING_RANKS = ['Ⅰ', 'Ⅱ', 'Ⅲ'];
 const STORE_QUALITIES = ['F', 'E', 'D'];
@@ -1021,6 +1022,7 @@ export function createDedicatedPublishEditor({
   const emit = () => {
     try { onChange?.(); } catch {}
   };
+  if (mode === 'scenario') return createScenarioEditor({ doc, initial, onChange: emit });
   if (mode === 'store_catalog') return storeEditor(doc, initial.store_catalog || initial, emit);
   if (mode === 'world_character') return worldEditor(doc, initial, emit);
   if (mode === 'opening_character' || mode === 'opening_partner') {

@@ -1,3 +1,5 @@
+import { buildScenarioArtifacts, scenarioInitialValues } from './scenario-templates.js';
+
 const OPENING_RANKS = new Set(['Ⅰ', 'Ⅱ', 'Ⅲ']);
 const RANK_QUALITY = { 'Ⅰ': 'F', 'Ⅱ': 'E', 'Ⅲ': 'D' };
 const STORE_QUALITIES = new Set(['F', 'E', 'D']);
@@ -164,6 +166,7 @@ function worldbookArtifact(name, keys, content) {
 
 export function resolvePublishMode(categorySelection, characterKind = '') {
   if (categorySelection === 'store_catalog') return 'store_catalog';
+  if (categorySelection === 'scenario') return 'scenario';
   if (categorySelection === 'character') {
     return ['world_character', 'opening_character', 'opening_partner'].includes(characterKind)
       ? characterKind
@@ -177,7 +180,7 @@ export function projectCategoryForSelection(categorySelection) {
 }
 
 export function isDedicatedPublishMode(mode) {
-  return ['world_character', 'opening_character', 'opening_partner', 'store_catalog'].includes(mode);
+  return ['world_character', 'opening_character', 'opening_partner', 'store_catalog', 'scenario'].includes(mode);
 }
 
 function validatePointBudget(source, mode) {
@@ -367,6 +370,7 @@ function validateStoreCatalog(catalog) {
 }
 
 export function buildDedicatedArtifacts(source, mode, projectName) {
+  if (mode === 'scenario') return buildScenarioArtifacts(source, projectName);
   if (mode === 'world_character') {
     const name = read(source, 'world_name') || projectName;
     if (!name) throw new Error('请填写世界角色姓名');
@@ -466,6 +470,7 @@ export function detectPublishMode(category, artifacts = []) {
     if (kinds.has('opening_character')) return 'opening_character';
     return 'world_character';
   }
+  if (kinds.has('scenario')) return 'scenario';
   return kinds.has('store_catalog') ? 'store_catalog' : 'extension';
 }
 
@@ -474,6 +479,7 @@ function firstEffect(value = {}) {
 }
 
 export function dedicatedInitialValues(artifacts = [], mode, projectName = '') {
+  if (mode === 'scenario') return scenarioInitialValues(artifacts);
   const values = dataValues(artifacts);
 
   if (mode === 'world_character') {

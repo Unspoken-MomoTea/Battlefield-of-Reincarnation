@@ -136,6 +136,7 @@ export async function uninstallProject({ adapter, storage }, projectId) {
       updatedAt: Date.now(),
     };
     await storage.putInstalledProject(next);
+    try {globalThis.window?.dispatchEvent?.(new CustomEvent('reincarnation:opening-scenarios-changed',{detail:{projectId:installed.id,action:'remove'}}));}catch{}
     return next;
   } catch (error) {
     await restoreInstallSnapshot(adapter, state);

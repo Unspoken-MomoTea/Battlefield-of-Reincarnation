@@ -39,6 +39,7 @@ function projectContentKind(project, bundle) {
     }
     return characterKinds[0] || 'world_character';
   }
+  if (kinds.includes('scenario')) return 'scenario';
   return kinds.includes('store_catalog') ? 'store_catalog' : 'extension';
 }
 

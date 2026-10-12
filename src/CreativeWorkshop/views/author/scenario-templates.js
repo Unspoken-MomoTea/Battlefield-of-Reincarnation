@@ -140,21 +140,29 @@ function sceneExpression(row) {
   ].join(' ');
 }
 export function buildScenarioArtifacts(source, projectName) {
-  const world=text(source.scenario_world||projectName,'副本世界名称',80);
+  const world=text(source.scenario_world,'副本世界名称',80);
   const time=text(source.scenario_time,'初始时间锚点',160);
   const laws=text(source.scenario_laws,'世界法则',1200);
+  const location=text(source.scenario_location,'初始地点',160);
+  const rank=['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ'].includes(source.scenario_rank)?source.scenario_rank:'Ⅲ';
+  const tier=text(source.scenario_tier,'副本难度范围',50)||'F~D';
+  const currency={
+    体系:text(source.scenario_currency_system,'货币体系',1000),
+    购买力基准:text(source.scenario_currency_purchasing,'购买力基准',1500),
+    经济波动:text(source.scenario_currency_fluctuation,'经济波动',1500),
+  };
   const identity=text(source.scenario_identity,'切入身份',160);
   const mode=MODES.has(source.scenario_mode)?source.scenario_mode:'both';
-  if(!world)throw new Error('请填写工坊作品名称');
+  if(!world)throw new Error('请填写副本世界名称（写入 MVU 的 世界.名称），不能只填写工坊作品标题');
   const calendar=parseCalendar(source);
   const sections=normalizeSections(source.scenario_sections||[],calendar);
   const macros=orderedScenarioMacros(sections);
   const current=macros.filter(row=>dateKey(time)&&dateKey(row.time)&&dateKey(row.time)<=dateKey(time)).at(-1);
   const future=macros.filter(row=>!dateKey(time)||!dateKey(row.time)||dateKey(row.time)>dateKey(time));
-  const initialTime=time||macros[0]?.time||'';
+  const initialTime=time; // 作者留空时间锚点时，不从未来事件杜撰开局日期。
   const stage=current?.title||future[0]?.title||'待初始化';
   const initialFive=[...new Set([...(current?[current.title]:[]),...future.map(row=>row.title)])].slice(0,5);
-  const story=initialFive.length>=3?initialFive.join(' -> '):'';
+  const story=initialFive.join(' -> '); // 一两个宏观节点也可开局，后续由世界推进补全。
   const next=future[0]?.title||'';
   const catalog=macros.map(row=>({name:row.title,time:row.timeType==='after'?row.after+'之后':row.time,after:row.after}));
   const indexScript=[
@@ -174,7 +182,15 @@ export function buildScenarioArtifacts(source, projectName) {
     '<%_ } } _%>',
   ].join('\n');
   const entries=[
-    entry('[副本] '+world+' · 基础',world,'【世界法则】'+(laws||'依当前世界设定')+'\n【切入身份】'+(identity||'自由切入'), 'true',200),
+    entry('[副本] '+world+' · 基础',world,[
+      '【世界名称】'+world,
+      '【世界初始地区】'+(location||'由开局决定'),
+      '【世界法则】'+(laws||'依当前世界设定'),
+      '【货币体系】'+(currency.体系||'由当前世界经济设定决定'),
+      currency.购买力基准?'【购买力基准】'+currency.购买力基准:'',
+      currency.经济波动?'【经济波动】'+currency.经济波动:'',
+      '【切入身份】'+(identity||'自由切入'),
+    ].filter(Boolean).join('\n'),'true',200),
     { ...entry('[副本] '+world+' · 近期年表',world,'', 'false',201),content:indexScript },
   ];
   sections.forEach((row,index)=>{
@@ -183,7 +199,7 @@ export function buildScenarioArtifacts(source, projectName) {
     entries.push(entry('[副本] '+world+' · '+row.title,world,content,sceneExpression(row),210+index));
   });
   const data={schema_version:1,kind:'scenario',world,time:initialTime,stage,story,next,
-    mode,laws,identity,calendar,rank:'Ⅲ',tier:'F~D',sections};
+    mode,laws,identity,calendar,rank,tier,location,currency,sections};
   data.initialEvents=scenarioEventRecords(data);
   return [
     {kind:'worldbook',name:safeName(projectName||world)+'.scenario.worldbook.json',format:'json',content:{entries}},
@@ -199,6 +215,11 @@ export function scenarioInitialValues(artifacts) {
   });
   return {scenario_world:data.world||'',scenario_time:data.time||'',scenario_laws:data.laws||'',
     scenario_identity:data.identity||'',scenario_mode:data.mode||'both',
+    scenario_rank:data.rank||'Ⅲ',scenario_tier:data.tier||'F~D',
+    scenario_location:data.location||'',
+    scenario_currency_system:data.currency?.体系||'',
+    scenario_currency_purchasing:data.currency?.购买力基准||'',
+    scenario_currency_fluctuation:data.currency?.经济波动||'',
     scenario_calendar_name:data.calendar?.名称||'',
     scenario_calendar_months:Array.isArray(data.calendar?.月份天数)?data.calendar.月份天数.join(','):'',
     scenario_calendar_leap:data.calendar?.闰年规则||'',

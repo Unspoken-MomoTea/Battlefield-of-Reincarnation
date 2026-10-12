@@ -14,6 +14,11 @@ const sections=[
   {title:'法术',type:'always',content:'奥术、圣光和自然魔法并存。'},
 ];
 const sample={
+  scenario_world:'艾泽拉斯',scenario_rank:'Ⅳ',scenario_tier:'D~A',
+  scenario_location:'东部王国-洛丹伦',
+  scenario_currency_system:'铜币、银币、金币；100铜=1银，100银=1金',
+  scenario_currency_purchasing:'旅店每晚1银币',
+  scenario_currency_fluctuation:'战争时期粮食涨价',
   scenario_time:'2026年-10月-13日-上午',scenario_laws:'魔法客观存在；亡灵瘟疫会传播',
   scenario_identity:'王国调查员',scenario_sections:sections,
 };
@@ -30,6 +35,12 @@ test('宏观节点由事件名称、日期与前因自动排期，正文不写�
   const bundle=buildScenarioArtifacts(sample,'艾泽拉斯');
   const data=bundle[1].content;
   assert.equal(data.world,'艾泽拉斯');
+  assert.equal(data.rank,'Ⅳ');
+  assert.equal(data.tier,'D~A');
+  assert.equal(data.location,'东部王国-洛丹伦');
+  assert.equal(data.currency.体系,sample.scenario_currency_system);
+  assert.equal(data.currency.购买力基准,sample.scenario_currency_purchasing);
+  assert.equal(data.currency.经济波动,sample.scenario_currency_fluctuation);
   assert.equal(data.stage,'亡灵瘟疫扩散');
   assert.equal(data.next,'斯坦索姆抉择');
   assert.equal(data.story,'亡灵瘟疫扩散 -> 斯坦索姆抉择 -> 阿尔萨斯北伐');
@@ -42,6 +53,8 @@ test('宏观节点由事件名称、日期与前因自动排期，正文不写�
   assert.ok(entries.every(e=>e.position.type==='before_character_definition'));
   assert.ok(entries.every(e=>e.content.includes('getMessageVar("stat_data"')));
   assert.ok(entries[3].content.includes('因果轨道.下一节点'));
+  assert.match(entries[0].content,/【世界名称】艾泽拉斯/);
+  assert.match(entries[0].content,/【货币体系】铜币、银币、金币/);
   assert.ok(entries[5].content.includes('洛丹伦'));
 });
 test('70个原著宏观节点只初始化5个，剩余信息由动态年表按需筛选',()=>{
@@ -64,6 +77,13 @@ test('编辑回填、安装保留场景标识，启用后出现在开局选择',
   const artifacts=buildDedicatedArtifacts(sample,'scenario','艾泽拉斯');
   assert.equal(detectPublishMode('extension',artifacts),'scenario');
   const initial=dedicatedInitialValues(artifacts,'scenario');
+  assert.equal(initial.scenario_world,sample.scenario_world);
+  assert.equal(initial.scenario_rank,'Ⅳ');
+  assert.equal(initial.scenario_tier,'D~A');
+  assert.equal(initial.scenario_location,sample.scenario_location);
+  assert.equal(initial.scenario_currency_system,sample.scenario_currency_system);
+  assert.equal(initial.scenario_currency_purchasing,sample.scenario_currency_purchasing);
+  assert.equal(initial.scenario_currency_fluctuation,sample.scenario_currency_fluctuation);
   assert.deepEqual(initial.scenario_sections,sections.map(row=>({
     ...row, timeType:row.timeType||'phase', time:row.time||'',after:row.after||'',location:row.location||'',condition:row.condition||'',
   })));
@@ -75,6 +95,9 @@ test('编辑回填、安装保留场景标识，启用后出现在开局选择',
   ]);
   assert.equal(catalog.length,1);
   assert.equal(Object.keys(catalog[0].initialEvents).length,3);
+  assert.equal(catalog[0].currency.体系,sample.scenario_currency_system);
+  assert.equal(catalog[0].rank,'Ⅳ');
+  assert.equal(catalog[0].tier,'D~A');
 });
 test('自定义历法可使用现有世界.历法字段，包含第13个月的作品日期',()=>{
   const custom=buildScenarioArtifacts({
@@ -90,6 +113,26 @@ test('自定义历法可使用现有世界.历法字段，包含第13个月的�
   const reopened=dedicatedInitialValues(custom,'scenario');
   assert.equal(reopened.scenario_calendar_name,'异界历');
   assert.equal(reopened.scenario_calendar_months,Array(13).fill(30).join(','));
+});
+test('世界名称必须独立填写；日历和资料日期完全可选，两个宏观节点也可生成故事线',()=>{
+  assert.throws(()=>buildScenarioArtifacts({...sample,scenario_world:''},'工坊作品标题'),/副本世界名称/u);
+  const bundle=buildScenarioArtifacts({
+    scenario_world:'艾泽拉斯',scenario_time:'',
+    scenario_sections:[
+      {title:'瘟疫扩散',type:'macro',content:'天灾开始'},
+      {title:'斯坦索姆抉择',type:'macro',content:'玩家可改变历史'},
+    ],
+  },'魔兽世界工坊作品');
+  assert.equal(bundle[1].content.world,'艾泽拉斯');
+  assert.equal(bundle[1].content.time,'');
+  assert.equal(bundle[1].content.calendar,null);
+  assert.equal(bundle[1].content.story,'瘟疫扩散 -> 斯坦索姆抉择');
+  const ui=readFileSync(new URL('../views/author/scenario-editor.js',import.meta.url),'utf8');
+  for(const field of ['scenario_world','scenario_rank','scenario_tier','scenario_location',
+    'scenario_currency_system','scenario_currency_purchasing','scenario_currency_fluctuation']) {
+    assert.ok(ui.includes(field),'编辑器必须展示现有世界 MVU 初始化项：'+field);
+  }
+  assert.match(ui,/可选，不选日期也能保存/);
 });
 test('防止 EJS 代码混入和超出资料条数',()=>{
   assert.throws(()=>buildScenarioArtifacts({...sample,scenario_sections:[{title:'bad',type:'always',content:'<% malicious %>'}]},'艾泽拉斯'),/EJS/u);

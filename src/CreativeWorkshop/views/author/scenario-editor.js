@@ -38,14 +38,22 @@ function bindCalendar(doc,textInput){
       textInput.dispatchEvent(new Event('input',{bubbles:true}));
     }
   });
-  row.append(date);
+  const note=element(doc,'small','可选，不选日期也能保存','rw-muted');
+  row.append(date,note);
   return row;
 }
 export function createScenarioEditor({doc,initial={},onChange=null}) {
   const root=element(doc,'div','','rw-scenario-editor');
   const notify=()=>{try{onChange?.();}catch{}};
-  root.append(element(doc,'p','世界名称使用工坊作品名称；宏观故事线和下一节点自动取自事件卡片。原著资料入世界书，近期节点在开局时接入世界推进后台。','rw-muted'));
-  const mode=initial.scenario_mode||'both';
+  root.append(element(doc,'p','世界基础信息在开局时写入已有 MVU 字段；宏观故事线和下一节点由资料卡自动生成，原著正文进入 EJS 世界书。','rw-muted'));
+  const mode=picker(doc,'scenario_mode',[['both','多元副本与单一世界'],['multi','仅多元副本'],['single','仅单一世界']],initial.scenario_mode||'both');
+  const worldName=control(doc,'scenario_world',initial.scenario_world||'',false,'例如：艾泽拉斯（独立于工坊作品标题）');
+  const rank=picker(doc,'scenario_rank',['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ'].map(v=>[v,v]),initial.scenario_rank||'Ⅲ');
+  const tier=control(doc,'scenario_tier',initial.scenario_tier||'F~D',false,'例如：F~D');
+  const location=control(doc,'scenario_location',initial.scenario_location||'',false,'例如：东部王国-洛丹伦');
+  const moneySystem=control(doc,'scenario_currency_system',initial.scenario_currency_system||'',false,'例如：铜币、银币、金币；100铜=1银，100银=1金');
+  const purchasing=control(doc,'scenario_currency_purchasing',initial.scenario_currency_purchasing||'',true,'例如：普通旅店住宿每晚约1银币');
+  const fluctuation=control(doc,'scenario_currency_fluctuation',initial.scenario_currency_fluctuation||'',true,'例如：战争时期粮食价格明显上涨');
   const laws=control(doc,'scenario_laws',initial.scenario_laws,true,'世界特殊法则，以分号分隔（可留空）');
   const identity=control(doc,'scenario_identity',initial.scenario_identity,false,'例如：洛丹伦旅行者');
   const start=control(doc,'scenario_time',initial.scenario_time,false,'具体日期、作品纪年或剧情时期');
@@ -60,13 +68,22 @@ export function createScenarioEditor({doc,initial={},onChange=null}) {
   calendarDetails.open=Boolean(calendarName.value||calendarMonths.value||calendarLeap.value);
 
   root.append(
+    element(doc,'div','世界初始信息 · MVU','rw-publish-step-title'),
+    field(doc,'世界名称 *',worldName,'例如「艾泽拉斯」；不能直接以工坊作品标题代替。'),
+    field(doc,'适用开局模式',mode),
+    field(doc,'世界位格',rank),
+    field(doc,'副本难度范围',tier,'示例 F~D；写入现有 世界.难度。'),
+    field(doc,'初始地点',location,'可选；留空表示由开局 AI 安排地点。'),
+    field(doc,'货币体系',moneySystem,'写入 世界.货币.体系；可留空。'),
+    field(doc,'购买力基准',purchasing,'写入 世界.货币.购买力基准；可留空。'),
+    field(doc,'经济波动',fluctuation,'写入 世界.货币.经济波动；可留空。'),
     field(doc,'世界法则',laws,'副本独特规则；已有通用规则无需重复填写。'),
     field(doc,'切入身份',identity),
-    field(doc,'初始时间锚点',start,'日历可选明确日期；虚构历法、模糊时期可直接填写文字。'),
+    field(doc,'初始时间锚点（可选）',start,'日历不是必填项；可用日历选日期、手写作品时期，或留空让世界推进确定。'),
     bindCalendar(doc,start), calendarDetails,
   );
   const title=element(doc,'div','副本资料 · 时间轴','rw-publish-step-title');
-  const help=element(doc,'p','宏观事件自动组成因果轨道；常驻设定/地区资料只放世界书。可用日历或相对事件时间，不必硬编原著日期。','rw-muted');
+  const help=element(doc,'p','每张资料卡只需名称和内容。日期可留空；有准确日期可用日历，只有故事阶段可填模糊时间，或选择在某事件之后。宏观事件进入后台，详细正文仍留在世界书。','rw-muted');
   const list=element(doc,'div','','rw-scenario-section-list');
   const add=element(doc,'button','＋ 新增资料卡片','rw-button');add.type='button';
   root.append(title,help,list,add);
@@ -92,14 +109,14 @@ export function createScenarioEditor({doc,initial={},onChange=null}) {
     const kind=picker(doc,'scenario_section_type',[['macro','宏观剧情事件'],['near','近期事件资料'],['location','地区资料'],['always','常驻世界资料']],value.type==='event'?'macro':value.type||'macro');
     const clock=picker(doc,'scenario_section_time_type',[['phase','作品时期 / 模糊时间'],['date','明确日期（日历）'],['after','前置事件之后']],value.timeType||'phase');
     const time=control(doc,'scenario_section_time',value.time||'',false,'例如：第三次战争初期');
-    const timeField=field(doc,'事件时间',time);
+    const timeField=field(doc,'事件时间（可选）',time);
     const calendar=bindCalendar(doc,time);
     const after=control(doc,'scenario_section_after',value.after||'',false,'填写另一条宏观事件的名称');
-    const afterField=field(doc,'前置事件',after,'仅对宏观事件有效，填入已创建的事件名称');
+    const afterField=field(doc,'前置事件（选择「前置事件之后」时填写）',after,'其他时间类型均可留空。');
     const location=control(doc,'scenario_section_location',value.location||value.match||'',false,'例如：东部王国-洛丹伦');
-    const locationField=field(doc,'关联地区',location);
+    const locationField=field(doc,'关联地区（可选）',location);
     const condition=control(doc,'scenario_section_condition',value.condition||'',false,'可选：例如守军集结后');
-    const conditionField=field(doc,'成立条件',condition);
+    const conditionField=field(doc,'成立条件（可选）',condition);
     const body=control(doc,'scenario_section_content',value.content||'',true,'原作背景、剧情、世界知识……');
     body.rows=5;
     card.append(head,field(doc,'资料名称 *',name),field(doc,'资料类型',kind),field(doc,'时间表达',clock),
@@ -125,7 +142,10 @@ export function createScenarioEditor({doc,initial={},onChange=null}) {
   root.addEventListener('input',notify);root.addEventListener('change',notify);
   return {node:root,values(){
     return {
-      scenario_world:'',scenario_mode:mode,scenario_time:start.value,
+      scenario_world:worldName.value,scenario_mode:mode.value,scenario_time:start.value,
+      scenario_rank:rank.value,scenario_tier:tier.value,scenario_location:location.value,
+      scenario_currency_system:moneySystem.value,scenario_currency_purchasing:purchasing.value,
+      scenario_currency_fluctuation:fluctuation.value,
       scenario_laws:laws.value,scenario_identity:identity.value,
       scenario_calendar_name:calendarName.value,scenario_calendar_months:calendarMonths.value,
       scenario_calendar_leap:calendarLeap.value,

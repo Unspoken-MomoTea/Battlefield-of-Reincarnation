@@ -2922,12 +2922,12 @@
 
     // 将工坊的近期宏观节点接入现有世界后台。仅首次进入时初始化，绝不复写同一世界的已确认事件。
     function seedOpeningScenario(c, scenario, set, previousWorld) {
-        if (!scenario || !scenario.initialEvents || typeof scenario.initialEvents !== 'object') return;
+        if (!scenario || !scenario.world) return;
         const world = (c.stat_data && c.stat_data.世界) || {};
         const sameWorld = String(previousWorld || '') === scenario.world;
         const bucket = sameWorld && world.后台 && world.后台.事件 && typeof world.后台.事件 === 'object'
             ? structuredClone(world.后台.事件) : {};
-        const values = Object.entries(scenario.initialEvents).slice(0, 5);
+        const values = Object.entries(scenario.initialEvents || {}).slice(0, 5);
         for (const [name, raw] of values) {
             if (!name || ['__proto__','constructor','prototype'].includes(name) || Object.prototype.hasOwnProperty.call(bucket,name)) continue;
             if (!raw || typeof raw !== 'object') continue;
@@ -2953,7 +2953,20 @@
                 故事线:scenario.story || '',下一节点:scenario.next || '',偏移记录:{}
             });
         }
-        if ((!sameWorld || !world.时间) && scenario.time) set(c,'stat_data.世界.时间',scenario.time);
+        // 用已有的世界字段初始化：不再以工坊作品名称代替世界名称。
+        if(!sameWorld || !world.时间) set(c,'stat_data.世界.时间',scenario.time || '待初始化');
+        if(!sameWorld || !world.地点) set(c,'stat_data.世界.地点',scenario.location || '待初始化');
+        if(!sameWorld || !world.位格) set(c,'stat_data.世界.位格',scenario.rank || 'Ⅲ');
+        if(!sameWorld || !world.难度) set(c,'stat_data.世界.难度',scenario.tier || 'F~D');
+        if(!sameWorld || !Array.isArray(world.法则)) set(c,'stat_data.世界.法则',parseOpeningWorldLaws(scenario.laws));
+        if(!sameWorld || !world.货币) {
+            const money=scenario.currency || {};
+            set(c,'stat_data.世界.货币',{
+                体系:String(money.体系 || ''),
+                购买力基准:String(money.购买力基准 || ''),
+                经济波动:String(money.经济波动 || '')
+            });
+        }
     }
 
     function applyOpeningDefaultPortraits() {
@@ -3149,12 +3162,7 @@
                             故事线:'',下一节点:'',偏移记录:{}
                         });
                     }
-                    if (scenario) {
-                        _set(c, 'stat_data.世界.地点', scenario.location || '');
-                        _set(c, 'stat_data.世界.位格', scenario.rank || 'Ⅲ');
-                        _set(c, 'stat_data.世界.难度', scenario.tier || 'F~D');
-                        _set(c, 'stat_data.世界.法则', parseOpeningWorldLaws(scenario.laws));
-                    }
+
                 } else if (selectedPlot) {
                     _set(c, 'stat_data.系统状态.是否在主神空间', false);
                     const p = DB.plots.find(x => x.id === selectedPlot);
@@ -3168,16 +3176,15 @@
                             if (scenario) seedOpeningScenario(c,scenario,_set,previousWorld);
                             if (p.location) _set(c, 'stat_data.世界.地点', p.location);
                         }
-                        // 世界位格(罗马数字 Ⅰ~Ⅸ), 与[InitVar]世界初始设定.yaml 字段对齐, 与【选择世界】正则保持同步
-                        if (p.rank) _set(c, 'stat_data.世界.位格', p.rank);
-                        // 综合难度(保留 tier 原始范围 F~E 原样入库, 不截断为单个字母), 与【选择世界】正则保持同步
-                        if (p.tier) {
-                            const tierRaw = String(p.tier).replace(/\s+/g,'').replace(/[-–—]/g,'~').toUpperCase();
-                            if (tierRaw) _set(c, 'stat_data.世界.难度', tierRaw);
+                        if (!p._sourceProjectId) {
+                            // 原有官方副本仍使用原先的世界初始化方式。
+                            if (p.rank) _set(c, 'stat_data.世界.位格', p.rank);
+                            if (p.tier) {
+                                const tierRaw = String(p.tier).replace(/\s+/g,'').replace(/[-–—]/g,'~').toUpperCase();
+                                if (tierRaw) _set(c, 'stat_data.世界.难度', tierRaw);
+                            }
+                            _set(c, 'stat_data.世界.法则', parseOpeningWorldLaws(p.law));
                         }
-                        // 预设世界法则已经固化在 DB.plots.p.law 中，开局时直接程序写入。
-                        // p.risk 是风险/后果提示，不属于世界法则数组。
-                        _set(c, 'stat_data.世界.法则', parseOpeningWorldLaws(p.law));
                         // 干涉模式 + 空名单；异端身份由随后的主神任务初始化
                         _set(c, 'stat_data.世界.异端雷达.当前模式', p.ecology || p.eco || '');
                         _set(c, 'stat_data.世界.异端雷达.名单', {});
@@ -3198,12 +3205,19 @@
         let worldText = "当前处于主神空间待机状态，未锚定具体世界。";
         if (singleWorldEnabled) {
             isWorldAnchored = true; // 状态更新：已进入单一世界
+            const selectedScenarioInfo=openingScenarios.find(row=>row.id===selectedSingleScenario && row.world===$('sw-name').value.trim());
+            const selectedCurrency=(selectedScenarioInfo && selectedScenarioInfo.currency)||{};
             worldText = `【${$('sw-name').value.trim() || '未知世界'}】
 时间锚点: ${$('sw-time').value.trim() || '未设定'}
 主线状态: ${$('sw-mainstate').value.trim() || '未设定'}
 切入身份: ${$('sw-identity').value.trim() || '角色'}
 主神任务: ${$('sw-goal').value.trim() || '无'}
-${(openingScenarios.find(row=>row.id===selectedSingleScenario && row.world===$('sw-name').value.trim())||{}).story ? '默认宏观故事线: '+openingScenarios.find(row=>row.id===selectedSingleScenario).story : ''}`;
+${selectedScenarioInfo?'世界位格: '+selectedScenarioInfo.rank+'，副本难度: '+selectedScenarioInfo.tier:''}
+${selectedScenarioInfo&&selectedScenarioInfo.location?'初始地点: '+selectedScenarioInfo.location:''}
+${selectedCurrency.体系?'货币体系: '+selectedCurrency.体系:''}
+${selectedCurrency.购买力基准?'购买力基准: '+selectedCurrency.购买力基准:''}
+${selectedCurrency.经济波动?'经济波动: '+selectedCurrency.经济波动:''}
+${selectedScenarioInfo&&selectedScenarioInfo.story?'默认宏观故事线: '+selectedScenarioInfo.story:''}`;
         } else if (selectedPlot) {
             const p = DB.plots.find(x => x.id === selectedPlot);
             if (p) {
@@ -3211,6 +3225,8 @@ ${(openingScenarios.find(row=>row.id===selectedSingleScenario && row.world===$('
                 
                 // 提取出干净的名字, 评级改用世界位格(罗马数字)
                 const cleanName = (p.name.match(/【(.*?)】/) || [])[1] || p.name;
+                const selectedScenarioInfo=p._sourceProjectId?openingScenarios.find(row=>row.id===p.id&&row.world===cleanName):null;
+                const selectedCurrency=selectedScenarioInfo&&selectedScenarioInfo.currency||{};
                 const rank = p.rank || 'Ⅰ';
                 const tier = (p.tier || 'F~E').replace(/\s+/g,'').replace('~','-') + '级';
 
@@ -3222,7 +3238,11 @@ ${(openingScenarios.find(row=>row.id===selectedSingleScenario && row.world===$('
 世界法则: ${p.law}
 风险提示: ${p.risk}
 切入身份: ${p.identity}
-${p._sourceProjectId?'默认宏观故事线: '+p.story+'\\n下一节点: '+p.next:''}`;
+${p._sourceProjectId?'默认宏观故事线: '+p.story+'\\n下一节点: '+p.next:''}
+${selectedScenarioInfo&&selectedScenarioInfo.location?'初始地点: '+selectedScenarioInfo.location:''}
+${selectedCurrency.体系?'货币体系: '+selectedCurrency.体系:''}
+${selectedCurrency.购买力基准?'购买力基准: '+selectedCurrency.购买力基准:''}
+${selectedCurrency.经济波动?'经济波动: '+selectedCurrency.经济波动:''}`;
             }
         }
 

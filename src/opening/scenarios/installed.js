@@ -18,6 +18,8 @@ export function projectScenarioCatalog(projects = []) {
           time: data.time || '', stage: data.stage || '',
           story: data.story || '', next: data.next || '',
           location: data.location || '', identity: data.identity || '',
+          currency: data.currency && typeof data.currency === 'object'
+            ? structuredClone(data.currency) : {体系:'',购买力基准:'',经济波动:''},
           laws: data.laws || '', goal: data.goal || '',
           rank: data.rank || 'Ⅲ', tier: data.tier || 'F~D',
           overview: data.overview || '',

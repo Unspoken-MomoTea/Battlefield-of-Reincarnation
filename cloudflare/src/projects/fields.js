@@ -6,6 +6,7 @@ const PUBLIC_SORT_SET = new Set(['latest', 'popular', 'downloads', 'likes', 'fav
 const PUBLIC_KIND_SET = new Set([
   'extension',
   'store_catalog',
+  'scenario',
   'world_character',
   'opening_character',
   'opening_partner',

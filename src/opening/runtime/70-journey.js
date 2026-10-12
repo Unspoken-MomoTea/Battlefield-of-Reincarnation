@@ -9,6 +9,39 @@
             .slice(0, 10);
     }
 
+    // 将工坊的近期宏观节点接入现有世界后台。仅首次进入时初始化，绝不复写同一世界的已确认事件。
+    function seedOpeningScenario(c, scenario, set, previousWorld) {
+        if (!scenario || !scenario.initialEvents || typeof scenario.initialEvents !== 'object') return;
+        const world = (c.stat_data && c.stat_data.世界) || {};
+        const sameWorld = String(previousWorld || '') === scenario.world;
+        const bucket = sameWorld && world.后台 && world.后台.事件 && typeof world.后台.事件 === 'object'
+            ? structuredClone(world.后台.事件) : {};
+        const values = Object.entries(scenario.initialEvents).slice(0, 5);
+        for (const [name, raw] of values) {
+            if (!name || ['__proto__','constructor','prototype'].includes(name) || Object.prototype.hasOwnProperty.call(bucket,name)) continue;
+            if (!raw || typeof raw !== 'object') continue;
+            bucket[name] = {
+                分类:'宏观节点', 状态:raw.状态 === '进行中' ? '进行中' : '待发生',
+                描述:String(raw.描述 || '').slice(0,140),
+                时间:String(raw.时间 || '').slice(0,160),
+                条件:String(raw.条件 || '').slice(0,260),
+                前因:Array.isArray(raw.前因) ? raw.前因.filter(item=>Object.prototype.hasOwnProperty.call(bucket,item)).slice(0,5) : [],
+                默认走向:String(raw.默认走向 || '').slice(0,200),
+                结果:'',公开征兆:'',地点:String(raw.地点 || '').slice(0,160),
+                参与者:[],关联任务:[],可见影响:[],
+            };
+        }
+        set(c,'stat_data.世界.后台.事件',bucket);
+        const orbit = world.因果轨道 || {};
+        if (!sameWorld || (!orbit.故事线 && !orbit.下一节点)) {
+            set(c,'stat_data.世界.因果轨道',{
+                当前阶段:scenario.stage || '待初始化',
+                故事线:scenario.story || '',下一节点:scenario.next || '',偏移记录:{}
+            });
+        }
+        if ((!sameWorld || !world.时间) && scenario.time) set(c,'stat_data.世界.时间',scenario.time);
+    }
+
     function applyOpeningDefaultPortraits() {
         try {
             const win = window.parent || window;
@@ -189,13 +222,19 @@
                 // 世界信息精准注入
                 if (singleWorldEnabled) {
                     _set(c, 'stat_data.系统状态.是否在主神空间', false);
-                    _set(c, 'stat_data.世界.时间', $('sw-time').value.trim());
-                    _set(c, 'stat_data.世界.名称', $('sw-name').value.trim());
-                    const scenario = openingScenarios.find(row=>row.id===selectedSingleScenario && row.mode!=='multi' && row.world===$('sw-name').value.trim());
-                    _set(c, 'stat_data.世界.因果轨道', {
-                        当前阶段: $('sw-mainstate').value.trim() || '未设定',
-                        故事线: scenario && scenario.story || '', 下一节点: scenario && scenario.next || '', 偏移记录: {}
-                    });
+                    const previousWorld = String((c.stat_data && c.stat_data.世界 && c.stat_data.世界.名称) || '');
+                    const newWorld = $('sw-name').value.trim();
+                    const scenario = openingScenarios.find(row=>row.id===selectedSingleScenario && row.mode!=='multi' && row.world===newWorld);
+                    _set(c, 'stat_data.世界.名称', newWorld);
+                    if (scenario) {
+                        seedOpeningScenario(c,scenario,_set,previousWorld);
+                    } else {
+                        _set(c, 'stat_data.世界.时间', $('sw-time').value.trim());
+                        _set(c, 'stat_data.世界.因果轨道',{
+                            当前阶段:$('sw-mainstate').value.trim() || '未设定',
+                            故事线:'',下一节点:'',偏移记录:{}
+                        });
+                    }
                     if (scenario) {
                         _set(c, 'stat_data.世界.地点', scenario.location || '');
                         _set(c, 'stat_data.世界.位格', scenario.rank || 'Ⅲ');
@@ -208,11 +247,12 @@
                     if (p) {
                         // .match(/【(.*?)】/) 会提取出【】里面的内容
                         const cleanName = (p.name.match(/【(.*?)】/) || [])[1] || p.name;
+                        const previousWorld = String((c.stat_data && c.stat_data.世界 && c.stat_data.世界.名称) || '');
                         _set(c, 'stat_data.世界.名称', cleanName);
                         if (p._sourceProjectId) {
-                            _set(c, 'stat_data.世界.时间', p.time);
-                            _set(c, 'stat_data.世界.地点', p.location || '');
-                            _set(c, 'stat_data.世界.因果轨道', { 当前阶段:p.deviation, 故事线:p.story, 下一节点:p.next, 偏移记录:{} });
+                            const scenario = openingScenarios.find(row=>row.id===p.id && row.world===cleanName);
+                            if (scenario) seedOpeningScenario(c,scenario,_set,previousWorld);
+                            if (p.location) _set(c, 'stat_data.世界.地点', p.location);
                         }
                         // 世界位格(罗马数字 Ⅰ~Ⅸ), 与[InitVar]世界初始设定.yaml 字段对齐, 与【选择世界】正则保持同步
                         if (p.rank) _set(c, 'stat_data.世界.位格', p.rank);

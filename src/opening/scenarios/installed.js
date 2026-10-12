@@ -21,6 +21,7 @@ export function projectScenarioCatalog(projects = []) {
           laws: data.laws || '', goal: data.goal || '',
           rank: data.rank || 'Ⅲ', tier: data.tier || 'F~D',
           overview: data.overview || '',
+          initialEvents: data.initialEvents && typeof data.initialEvents === 'object' ? structuredClone(data.initialEvents) : {},
         });
       }
     }

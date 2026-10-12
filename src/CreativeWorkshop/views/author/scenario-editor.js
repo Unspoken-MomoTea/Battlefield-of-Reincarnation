@@ -1,91 +1,132 @@
-// 副本专用 UI：作者只填写数据，所有 EJS 条件由编译模块生成。
-function node(doc, tag, text = '', cls = '') {
-  const el = doc.createElement(tag);
-  if (text) el.textContent = text;
-  if (cls) el.className = cls;
+// 副本作者编辑原著资料：没有手动故事线 / 下一节点，编译器从宏观事件名称生成。
+function element(doc,tag,label='',className='') {
+  const el=doc.createElement(tag);
+  if(label)el.textContent=label;
+  if(className)el.className=className;
   return el;
 }
-function input(doc, name, value = '', area = false, placeholder = '') {
-  const el = node(doc, area ? 'textarea' : 'input', '', area ? 'rw-textarea' : 'rw-input');
-  el.name = name; el.value = value || '';
-  if (placeholder) el.placeholder = placeholder;
-  if (area) el.rows = 4;
+function control(doc,name,value='',area=false,placeholder=''){
+  const el=element(doc,area?'textarea':'input','',area?'rw-textarea':'rw-input');
+  el.name=name;el.value=value||'';el.placeholder=placeholder;
+  if(area)el.rows=3;
   return el;
 }
-function select(doc, name, options, value) {
-  const el = node(doc, 'select', '', 'rw-select'); el.name = name;
-  for (const [key, text] of options) {
-    const option = node(doc, 'option', text); option.value = key;
-    option.selected = key === value; el.append(option);
+function picker(doc,name,values,selected) {
+  const select=element(doc,'select','','rw-select');select.name=name;
+  for(const [value,label] of values){
+    const option=element(doc,'option',label);option.value=value;option.selected=value===selected;select.append(option);
   }
-  return el;
+  return select;
 }
-function field(doc, title, control, hint = '') {
-  const el = node(doc, 'label', '', 'rw-field');
-  el.append(node(doc, 'span', title), control);
-  if (hint) el.append(node(doc, 'small', hint));
-  return el;
+function field(doc,label,input,hint=''){
+  const wrapper=element(doc,'label','','rw-field');
+  wrapper.append(element(doc,'span',label),input);
+  if(hint)wrapper.append(element(doc,'small',hint));
+  return wrapper;
 }
-const FIELD_NAMES = ['scenario_world','scenario_time','scenario_stage','scenario_story','scenario_next',
-  'scenario_overview','scenario_location','scenario_identity','scenario_laws','scenario_goal',
-  'scenario_rank','scenario_tier_low','scenario_tier_high','scenario_mode'];
-export function createScenarioEditor({doc, initial = {}, onChange = null}) {
-  const root = node(doc, 'div', '', 'rw-scenario-editor');
-  const intro = node(doc, 'p', '副本不新增 MVU 字段：世界、时间、因果轨道沿用现有结构；剧情和设定生成角色定义前（顺序 200～300）的 EJS 世界书。', 'rw-muted');
-  root.append(intro);
-  const ranks = ['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ'].map(k=>[k,k]);
-  const tiers = ['F','E','D','C','B','A','S','SS','SSS'].map(k=>[k,k]);
+function bindCalendar(doc,textInput){
+  const row=element(doc,'div','','rw-scenario-calendar');
+  row.style.cssText='display:flex;gap:8px;align-items:center;flex-wrap:wrap';
+  const date=element(doc,'input','','rw-input');date.type='date';date.title='通过日历选择公历日期';
+  date.style.cssText='min-width:140px;flex:1';
+  const match=String(textInput.value||'').match(/(\d{1,4})年[- ]?(\d{1,2})月[- ]?(\d{1,2})日/);
+  if(match)date.value=match[1].padStart(4,'0')+'-'+match[2].padStart(2,'0')+'-'+match[3].padStart(2,'0');
+  date.addEventListener('change',()=>{
+    if(date.value){
+      const [year,month,day]=date.value.split('-');
+      textInput.value=year+'年-'+month+'月-'+day+'日-上午';
+      textInput.dispatchEvent(new Event('input',{bubbles:true}));
+    }
+  });
+  row.append(date);
+  return row;
+}
+export function createScenarioEditor({doc,initial={},onChange=null}) {
+  const root=element(doc,'div','','rw-scenario-editor');
+  const notify=()=>{try{onChange?.();}catch{}};
+  root.append(element(doc,'p','世界名称使用工坊作品名称；宏观故事线和下一节点自动取自事件卡片。原著资料入世界书，近期节点在开局时接入世界推进后台。','rw-muted'));
+  const mode=initial.scenario_mode||'both';
+  const laws=control(doc,'scenario_laws',initial.scenario_laws,true,'世界特殊法则，以分号分隔（可留空）');
+  const identity=control(doc,'scenario_identity',initial.scenario_identity,false,'例如：洛丹伦旅行者');
+  const start=control(doc,'scenario_time',initial.scenario_time,false,'具体日期、作品纪年或剧情时期');
   root.append(
-    field(doc,'世界名称 *',input(doc,'scenario_world',initial.scenario_world,'','例如：艾泽拉斯')),
-    field(doc,'适用模式',select(doc,'scenario_mode',[['both','多元 / 单一世界'],['multi','仅多元'],['single','仅单一世界']],initial.scenario_mode||'both')),
-    field(doc,'初始时间锚点 *',input(doc,'scenario_time',initial.scenario_time,'','例如：第三次战争前期')),
-    field(doc,'初始地点',input(doc,'scenario_location',initial.scenario_location,'','例如：东部王国-洛丹伦')),
-    field(doc,'初始阶段 *',input(doc,'scenario_stage',initial.scenario_stage,true,'当前实际局势，不是整个故事概述')),
-    field(doc,'默认故事线 *',input(doc,'scenario_story',initial.scenario_story,true,'例如：亡灵瘟疫扩散 → 斯坦索姆抉择 → 阿尔萨斯北伐 → 霜之哀伤事件'),'按顺序填写 3～5 个宏观事件，必须与世界推进中的事件名称一致。'),
-    field(doc,'下一节点 *',input(doc,'scenario_next',initial.scenario_next,'','必须与故事线中的一个节点同名')),
-    field(doc,'基础世界设定 *',input(doc,'scenario_overview',initial.scenario_overview,true,'世界背景、力量体系、主要势力')),
-    field(doc,'世界法则',input(doc,'scenario_laws',initial.scenario_laws,true,'每条以分号分隔；最多10条')),
-    field(doc,'切入身份',input(doc,'scenario_identity',initial.scenario_identity,'','例如：洛丹伦边境冒险者')),
-    field(doc,'单一世界初始任务参考',input(doc,'scenario_goal',initial.scenario_goal,true,'可留空，由正文 AI 按现有系统生成')),
-    field(doc,'世界位格',select(doc,'scenario_rank',ranks,initial.scenario_rank||'Ⅲ')),
-    field(doc,'最低副本评级',select(doc,'scenario_tier_low',tiers,initial.scenario_tier_low||'F')),
-    field(doc,'最高副本评级',select(doc,'scenario_tier_high',tiers,initial.scenario_tier_high||'D')),
+    field(doc,'世界法则',laws,'副本独特规则；已有通用规则无需重复填写。'),
+    field(doc,'切入身份',identity),
+    field(doc,'初始时间锚点',start,'日历可选明确日期；虚构历法、模糊时期可直接填写文字。'),
+    bindCalendar(doc,start),
   );
-  const heading = node(doc,'div','地区与剧情资料 · EJS 自动筛选','rw-publish-step-title');
-  const help = node(doc,'p','常驻：仅当前世界可见；地区：仅当前位置相关；事件：仅下一节点匹配或对应事件进行中。禁止预先把未来章节全部送给 AI。','rw-muted');
-  const list = node(doc,'div','', 'rw-scenario-section-list');
-  const add = node(doc,'button','＋ 新增资料条目','rw-button');
-  add.type='button';
-  root.append(heading,help,list,add);
+  const title=element(doc,'div','副本资料 · 时间轴','rw-publish-step-title');
+  const help=element(doc,'p','宏观事件自动组成因果轨道；常驻设定/地区资料只放世界书。可用日历或相对事件时间，不必硬编原著日期。','rw-muted');
+  const list=element(doc,'div','','rw-scenario-section-list');
+  const add=element(doc,'button','＋ 新增资料卡片','rw-button');add.type='button';
+  root.append(title,help,list,add);
   const cards=[];
-  const emit=()=>{try{onChange?.();}catch{}};
-  function appendSection(value = {}, notify = true) {
-    if (cards.length >= 70) throw new Error('每个副本最多 70 条地区/剧情资料');
-    const card=node(doc,'div','','rw-opening-equipment-card');
-    const top=node(doc,'div','','rw-opening-skill-head');
-    const remove=node(doc,'button','删除','rw-button danger');remove.type='button';
-    top.append(node(doc,'strong','资料 '+(cards.length+1)),remove);
-    const kind=select(doc,'scenario_section_type',[['always','常驻设定'],['location','当前位置包含'],['event','关联宏观事件']],value.type||'always');
-    const title=input(doc,'scenario_section_title',value.title||'',false,'例如：斯坦索姆抉择');
-    const match=input(doc,'scenario_section_match',value.match||'',false,'地区名或宏观事件名称');
-    const content=input(doc,'scenario_section_content',value.content||'',true,'该阶段需要 AI 知道的具体设定与剧情');
-    card.append(top,field(doc,'条目名称 *',title),field(doc,'触发方式',kind),
-      field(doc,'匹配条件（常驻可留空）',match),field(doc,'资料正文 *',content));
-    list.append(card);cards.push(card);
-    remove.addEventListener('click',()=>{list.removeChild(card);cards.splice(cards.indexOf(card),1);emit();});
-    card.addEventListener('input',emit);card.addEventListener('change',emit);
-    if(notify) emit();
+  function syncCards(){
+    cards.forEach((card,index)=>{
+      const label=card.querySelector('[data-scenario-label]');
+      if(label)label.textContent='资料 '+(index+1);
+    });
+    notify();
   }
-  add.addEventListener('click',()=>{if(cards.length>=70)return;appendSection();});
-  root.addEventListener('input',emit);root.addEventListener('change',emit);
-  for(const section of initial.scenario_sections||[])appendSection(section,false);
+  function appendCard(value={},withChange=true){
+    if(cards.length>=70)return;
+    const card=element(doc,'div','','rw-opening-equipment-card');
+    card.style.marginBlock='10px';
+    const head=element(doc,'div','','rw-opening-skill-head');
+    const label=element(doc,'strong','资料 '+(cards.length+1));label.setAttribute('data-scenario-label','');
+    const up=element(doc,'button','↑','rw-button');up.title='前移';up.type='button';
+    const down=element(doc,'button','↓','rw-button');down.title='后移';down.type='button';
+    const del=element(doc,'button','删除','rw-button danger');del.type='button';
+    head.append(label,up,down,del);
+    const name=control(doc,'scenario_section_title',value.title||'',false,'例如：斯坦索姆抉择');
+    const kind=picker(doc,'scenario_section_type',[['macro','宏观剧情事件'],['near','近期事件资料'],['location','地区资料'],['always','常驻世界资料']],value.type==='event'?'macro':value.type||'macro');
+    const clock=picker(doc,'scenario_section_time_type',[['phase','作品时期 / 模糊时间'],['date','明确日期（日历）'],['after','前置事件之后']],value.timeType||'phase');
+    const time=control(doc,'scenario_section_time',value.time||'',false,'例如：第三次战争初期');
+    const timeField=field(doc,'事件时间',time);
+    const calendar=bindCalendar(doc,time);
+    const after=control(doc,'scenario_section_after',value.after||'',false,'填写另一条宏观事件的名称');
+    const afterField=field(doc,'前置事件',after,'仅对宏观事件有效，填入已创建的事件名称');
+    const location=control(doc,'scenario_section_location',value.location||value.match||'',false,'例如：东部王国-洛丹伦');
+    const locationField=field(doc,'关联地区',location);
+    const condition=control(doc,'scenario_section_condition',value.condition||'',false,'可选：例如守军集结后');
+    const conditionField=field(doc,'成立条件',condition);
+    const body=control(doc,'scenario_section_content',value.content||'',true,'原作背景、剧情、世界知识……');
+    body.rows=5;
+    card.append(head,field(doc,'资料名称 *',name),field(doc,'资料类型',kind),field(doc,'时间表达',clock),
+      timeField,calendar,afterField,locationField,conditionField,field(doc,'详细资料 *',body));
+    const visibility=()=>{
+      const dynamic=kind.value==='macro'||kind.value==='near';
+      clock.parentElement.hidden=!dynamic;
+      timeField.hidden=!dynamic||clock.value==='after';
+      calendar.hidden=!dynamic||clock.value!=='date';
+      afterField.hidden=!dynamic||clock.value!=='after';
+      conditionField.hidden=kind.value!=='macro';
+      locationField.hidden=kind.value==='always';
+    };
+    kind.addEventListener('change',visibility);clock.addEventListener('change',visibility);
+    up.addEventListener('click',()=>{const i=cards.indexOf(card);if(i>0){cards.splice(i,1);cards.splice(i-1,0,card);list.insertBefore(card,cards[i]||null);syncCards();}});
+    down.addEventListener('click',()=>{const i=cards.indexOf(card);if(i>=0&&i<cards.length-1){cards.splice(i,1);cards.splice(i+1,0,card);list.insertBefore(card,cards[i+2]||null);syncCards();}});
+    del.addEventListener('click',()=>{cards.splice(cards.indexOf(card),1);card.remove();syncCards();});
+    list.append(card);cards.push(card);visibility();
+    if(withChange)notify();
+  }
+  for(const value of initial.scenario_sections||[])appendCard(value,false);
+  add.addEventListener('click',()=>appendCard());
+  root.addEventListener('input',notify);root.addEventListener('change',notify);
   return {node:root,values(){
-    return {...Object.fromEntries(FIELD_NAMES.map(name=>[name,root.querySelector('[name="'+name+'"]')?.value||''])),
+    return {
+      scenario_world:'',scenario_mode:mode,scenario_time:start.value,
+      scenario_laws:laws.value,scenario_identity:identity.value,
       scenario_sections:cards.map(card=>({
         title:card.querySelector('[name="scenario_section_title"]').value,
         type:card.querySelector('[name="scenario_section_type"]').value,
-        match:card.querySelector('[name="scenario_section_match"]').value,
+        timeType:card.querySelector('[name="scenario_section_time_type"]').value,
+        time:card.querySelector('[name="scenario_section_time"]').value,
+        after:card.querySelector('[name="scenario_section_after"]').value,
+        location:card.querySelector('[name="scenario_section_location"]').value,
+        condition:card.querySelector('[name="scenario_section_condition"]').value,
         content:card.querySelector('[name="scenario_section_content"]').value,
-      }))};
+      })),
+    };
   }};
 }

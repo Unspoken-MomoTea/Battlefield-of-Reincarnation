@@ -65,7 +65,7 @@ test('编辑回填、安装保留场景标识，启用后出现在开局选择',
   assert.equal(detectPublishMode('extension',artifacts),'scenario');
   const initial=dedicatedInitialValues(artifacts,'scenario');
   assert.deepEqual(initial.scenario_sections,sections.map(row=>({
-    ...row, time:row.time||'',after:row.after||'',location:row.location||'',condition:row.condition||'',
+    ...row, timeType:row.timeType||'phase', time:row.time||'',after:row.after||'',location:row.location||'',condition:row.condition||'',
   })));
   const plan=buildArtifactPlan({id:'pkg',name:'艾泽拉斯',version:1,bundle:{schema_version:1,artifacts}});
   assert.ok(plan.worldbook.every(row=>row.extra.reincarnationWorkshop.scenario));

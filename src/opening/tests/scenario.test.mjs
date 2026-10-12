@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { projectScenarioCatalog } from '../scenarios/installed.js';
 const source=readFileSync(new URL('../runtime/70-journey.js',import.meta.url),'utf8');
-const begin=source.indexOf('    function seedOpeningScenario(');
+const begin=source.indexOf('    function parseOpeningWorldLaws(');
 const end=source.indexOf('    function applyOpeningDefaultPortraits()',begin);
-assert.ok(begin>0&&end>begin,'开局必须暴露内部 bootstrap seam');
+assert.ok(begin>0&&end>begin,'开局必须包含法则解析与副本初始化 seam');
 const seed=new Function(source.slice(begin,end)+'\nreturn seedOpeningScenario;')();
 function set(target,path,value){
   const parts=path.split('.');let object=target;

@@ -194,7 +194,7 @@
                     const scenario = openingScenarios.find(row=>row.id===selectedSingleScenario && row.mode!=='multi' && row.world===$('sw-name').value.trim());
                     _set(c, 'stat_data.世界.因果轨道', {
                         当前阶段: $('sw-mainstate').value.trim() || '未设定',
-                        故事线: scenario?.story || '', 下一节点: scenario?.next || '', 偏移记录: {}
+                        故事线: scenario && scenario.story || '', 下一节点: scenario && scenario.next || '', 偏移记录: {}
                     });
                     if (scenario) {
                         _set(c, 'stat_data.世界.地点', scenario.location || '');
@@ -249,7 +249,7 @@
 主线状态: ${$('sw-mainstate').value.trim() || '未设定'}
 切入身份: ${$('sw-identity').value.trim() || '角色'}
 主神任务: ${$('sw-goal').value.trim() || '无'}
-${openingScenarios.find(row=>row.id===selectedSingleScenario && row.world===$('sw-name').value.trim())?.story ? '默认宏观故事线: '+openingScenarios.find(row=>row.id===selectedSingleScenario).story : ''}`;
+${(openingScenarios.find(row=>row.id===selectedSingleScenario && row.world===$('sw-name').value.trim())||{}).story ? '默认宏观故事线: '+openingScenarios.find(row=>row.id===selectedSingleScenario).story : ''}`;
         } else if (selectedPlot) {
             const p = DB.plots.find(x => x.id === selectedPlot);
             if (p) {

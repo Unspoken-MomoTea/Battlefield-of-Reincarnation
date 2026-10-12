@@ -1,7 +1,7 @@
 // 副本是世界书 + 现有世界后台事件的数据来源，不创建新的 MVU 剧情字段。
 export const SCENARIO_ORDER_START = 200;
 export const SCENARIO_MAX_SECTIONS = 70;
-const SECTION_TYPES = new Set(['macro','location','always']);
+const SECTION_TYPES = new Set(['macro','location','faction','always']);
 const TIME_TYPES = new Set(['date','phase','after']);
 const MODES = new Set(['both','multi','single']);
 const clean = value => String(value ?? '').trim();
@@ -49,7 +49,39 @@ function dateExpression(row, calendar) {
       .map((n,i)=>n.padStart(i===0?4:2,'0')).join('-') : '');
   return key?'(!__rwDate || __rwDate >= '+JSON.stringify(key)+')':'true';
 }
-function entry(name, world, content, expression, order, keywords=[]) {
+// 只依赖现有 MVU：结算后的世界名称变化、明确终章阶段、最终宏观事件已完成。
+function completionExpression(finalTitle) {
+  const stage='String(_.get(__w,"因果轨道.当前阶段","")).trim()';
+  const finalState=finalTitle
+    ? 'String(_.get(__w,["后台","事件",'+JSON.stringify(finalTitle)+',"状态"],""))'
+    : '""';
+  return '(!["已通关","副本通关","副本结束","剧情完结","已完结"].includes('+stage+')'
+    +' && '+finalState+'!=="已完成")';
+}
+function macroExpression(row, macros, calendar) {
+  const name=JSON.stringify(row.title);
+  const status='String(_.get(__w,["后台","事件",'+name+',"状态"],""))';
+  const stage='String(_.get(__w,"因果轨道.当前阶段","")).trim()';
+  const next='String(_.get(__w,"因果轨道.下一节点","")).trim()';
+  const index=macros.findIndex(item=>item.title===row.title);
+  const date=dateKey(row.time)||(customDateValid(row.time,calendar)
+    ? String(row.time).match(/^(\d{1,4})年[- ]?(\d{1,2})月[- ]?(\d{1,2})日/u).slice(1,4)
+        .map((n,i)=>String(n).padStart(i===0?4:2,'0')).join('-'):'');
+  const nextDated=macros.slice(index+1).find(item=>dateKey(item.time));
+  const end=nextDated?dateKey(nextDated.time):'';
+  // 日期可比较时，以时间窗口推进；没有历法时回退已有因果轨道的阶段和下一节点。
+  const window=date?'(__rwDate && __rwDate >= '+JSON.stringify(date)
+    +(end && end>date?' && __rwDate < '+JSON.stringify(end):'')+')':'false';
+  const fallback=index===0?'(!'+stage+' && !'+next+')':'false';
+  const stageMatch='('+stage+'==='+name+' || ('+next+'==='+name
+    +' && (!'+stage+' || '+stage+'==="待初始化")) || '+fallback+')';
+  // 有实际可比较日期时以日期窗口为准，避免世界推进关闭后旧阶段长期挂住旧章节。
+  // 真正已开始的事件（进行中）可突破原定日期，允许玩家改变历史。
+  const current=date?'(__rwDate ? '+window+' : '+stageMatch+')':stageMatch;
+  return '!["已完成","已取消"].includes('+status+')'
+    +' && ('+status+'==="进行中" || '+current+')';
+}
+function entry(name, world, content, expression, order, keywords=[], finalTitle='') {
   return {
     name, enabled:true,
     strategy:{type:keywords.length?'selective':'constant',keys:keywords,keys_secondary:{logic:'and_any',keys:[]},scan_depth:'same_as_global'},
@@ -60,7 +92,9 @@ function entry(name, world, content, expression, order, keywords=[]) {
       'const __w = _.get(__rw, "世界", {});',
       'const __m = String(__w.时间||"").match(/(\\d{1,4})年[- ]?(\\d{1,2})月[- ]?(\\d{1,2})日|(\\d{4})-(\\d{2})-(\\d{2})/);',
       'const __rwDate = __m ? [__m[1]||__m[4],__m[2]||__m[5],__m[3]||__m[6]].map((n,i)=>String(n).padStart(i?2:4,"0")).join("-") : "";',
-      'if (String(__w.名称 || "") === '+JSON.stringify(world)+' && ('+expression+')) {',
+      'if (String(__w.名称 || "") === '+JSON.stringify(world)
+        +' && _.get(__rw,"系统状态.是否在主神空间",false)!==true'
+        +' && '+completionExpression(finalTitle)+' && ('+expression+')) {',
       '_%>',
       content,
       '<%_ } _%>',
@@ -143,21 +177,17 @@ export function scenarioEventRecords(scenario, {max=5}={}) {
   });
   return records;
 }
-function sceneExpression(row,calendar) {
+function sceneExpression(row,calendar,macros) {
   const date=dateExpression(row,calendar);
   if(row.type==='always')return 'true';
+  if(row.type==='faction')return date;
   if(row.type==='location'){
     const place=JSON.stringify(row.location);
     const placeCheck='(!String(__w.地点||"").trim() || String(__w.地点||"")==="待初始化"'
       +' || String(__w.地点||"").includes('+place+') || '+place+'.includes(String(__w.地点||"")))';
     return '('+placeCheck+' && '+date+')';
   }
-  const title=JSON.stringify(row.title);
-  const state='String(_.get(__w,["后台","事件",'+title+',"状态"],""))';
-  // 世界推进关闭时事件可永远是“待发生”：不能将其当作强制门禁。
-  // 已发生真实因果优先；进行中允许早于原著日期发生。
-  return '(!["已完成","已取消"].includes('+state+') && ('
-    +state+'==="进行中" || '+date+'))';
+  return macroExpression(row,macros,calendar);
 }
 export function buildScenarioArtifacts(source, projectName) {
   const world=text(source.scenario_world,'副本世界名称',80);
@@ -177,6 +207,7 @@ export function buildScenarioArtifacts(source, projectName) {
   const calendar=parseCalendar(source);
   const sections=normalizeSections(source.scenario_sections||[],calendar);
   const macros=orderedScenarioMacros(sections);
+  const finalTitle=macros.length?macros[macros.length-1].title:'';
   const current=macros.filter(row=>dateKey(time)&&dateKey(row.time)&&dateKey(row.time)<=dateKey(time)).at(-1);
   const future=macros.filter(row=>!dateKey(time)||!dateKey(row.time)||dateKey(row.time)>dateKey(time));
   const initialTime=time; // 作者留空时间锚点时，不从未来事件杜撰开局日期。
@@ -189,7 +220,9 @@ export function buildScenarioArtifacts(source, projectName) {
     '<%_',
     'const __rw = getMessageVar("stat_data", { defaults: {} }) || {};',
     'const __w = _.get(__rw, "世界", {});',
-    'if(String(__w.名称||"")==='+JSON.stringify(world)+'){',
+    'if(String(__w.名称||"")==='+JSON.stringify(world)
+      +' && _.get(__rw,"系统状态.是否在主神空间",false)!==true'
+      +' && '+completionExpression(finalTitle)+'){',
     'const __records=_.get(__w,"后台.事件",{});',
     'const __all='+JSON.stringify(catalog)+';',
     'const __at=String(__w.时间||"").match(/(\\d{1,4})年[- ]?(\\d{1,2})月[- ]?(\\d{1,2})日/);',
@@ -210,14 +243,14 @@ export function buildScenarioArtifacts(source, projectName) {
       currency.购买力基准?'【购买力基准】'+currency.购买力基准:'',
       currency.经济波动?'【经济波动】'+currency.经济波动:'',
       '【切入身份】'+(identity||'自由切入'),
-    ].filter(Boolean).join('\n'),'true',200),
-    { ...entry('[副本] '+world+' · 近期年表',world,'', 'false',201),content:indexScript },
+    ].filter(Boolean).join('\n'),'true',200,[],finalTitle),
+    { ...entry('[副本] '+world+' · 近期年表',world,'', 'false',201,[],finalTitle),content:indexScript },
   ];
   sections.forEach((row,index)=>{
     const content=row.type==='macro'?'【原著事件】'+row.title+'\n【原定时间】'+(row.time||row.after+'之后')+'\n【原定情节】\n'+row.content:
-      '【'+(row.type==='location'?'地区资料':'世界资料')+'】'+row.title+'\n'+row.content;
-    entries.push(entry('[副本] '+world+' · '+row.title,world,content,sceneExpression(row,calendar),210+index,
-      row.type==='always'?[]:keywordList(row)));
+      '【'+(row.type==='location'?'地区资料':row.type==='faction'?'阵营资料':'世界资料')+'】'+row.title+'\n'+row.content;
+    entries.push(entry('[副本] '+world+' · '+row.title,world,content,sceneExpression(row,calendar,macros),210+index,
+      row.type==='always'||row.type==='macro'?[]:keywordList(row),finalTitle));
 
   });
   const data={schema_version:1,kind:'scenario',world,time:initialTime,stage,story,next,

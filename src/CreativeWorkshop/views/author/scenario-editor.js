@@ -45,7 +45,7 @@ function bindCalendar(doc,textInput){
 export function createScenarioEditor({doc,initial={},onChange=null}) {
   const root=element(doc,'div','','rw-scenario-editor');
   const notify=()=>{try{onChange?.();}catch{}};
-  root.append(element(doc,'p','世界基础信息在开局时写入已有 MVU 字段；宏观故事线和下一节点由资料卡自动生成，原著正文进入 EJS 世界书。','rw-muted'));
+  root.append(element(doc,'p','世界基础信息写入 MVU。宏观剧情采用蓝灯+EJS 阶段筛选，地区和阵营由作者选择是否编写，采用绿灯+EJS 筛选。离开副本或明确完结时不再注入副本正文。','rw-muted'));
   const mode=picker(doc,'scenario_mode',[['both','多元副本与单一世界'],['multi','仅多元副本'],['single','仅单一世界']],initial.scenario_mode||'both');
   const worldName=control(doc,'scenario_world',initial.scenario_world||'',false,'例如：艾泽拉斯（独立于工坊作品标题）');
   const rank=picker(doc,'scenario_rank',['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ'].map(v=>[v,v]),initial.scenario_rank||'Ⅲ');
@@ -83,7 +83,7 @@ export function createScenarioEditor({doc,initial={},onChange=null}) {
     bindCalendar(doc,start), calendarDetails,
   );
   const title=element(doc,'div','副本资料 · 时间轴','rw-publish-step-title');
-  const help=element(doc,'p','地区和宏观剧情使用绿灯关键词 + EJS 世界/日期筛选，即使关闭世界推进也能触发。仅作者编写原著宏观事件，临时的近期事件由 AI 自由生成。日期可选，未知日期时不做硬拦截。','rw-muted');
+  const help=element(doc,'p','宏观剧情：蓝灯候选 + EJS 当前阶段/日期窗口，组成故事线；地区/阵营：作者可选，绿灯关键词 + EJS 世界/日期。短期事件由 AI 自行生成，不需作者创建。','rw-muted');
   const list=element(doc,'div','','rw-scenario-section-list');
   const add=element(doc,'button','＋ 新增资料卡片','rw-button');add.type='button';
   root.append(title,help,list,add);
@@ -107,7 +107,7 @@ export function createScenarioEditor({doc,initial={},onChange=null}) {
     head.append(label,up,down,del);
     const name=control(doc,'scenario_section_title',value.title||'',false,'例如：斯坦索姆抉择');
     const legacyType=value.type==='near'?(value.location||value.match?'location':'always'):value.type;
-    const kind=picker(doc,'scenario_section_type',[['macro','宏观剧情事件'],['location','地区资料'],['always','常驻世界资料']],legacyType==='event'?'macro':legacyType||'macro');
+    const kind=picker(doc,'scenario_section_type',[['macro','宏观剧情事件（蓝灯·阶段筛选）'],['location','地区资料（绿灯）'],['faction','阵营资料（绿灯·种族/鬼怪等）'],['always','世界基础资料（蓝灯·副本内）']],legacyType==='event'?'macro':legacyType||'macro');
     const clock=picker(doc,'scenario_section_time_type',[['phase','作品时期 / 模糊时间'],['date','明确日期（日历）'],['after','前置事件之后']],value.timeType||'phase');
     const time=control(doc,'scenario_section_time',value.time||'',false,'例如：第三次战争初期');
     const timeField=field(doc,'关联日期或时期（可选）',time,'明确日期用于 EJS 起始时间筛选；模糊时期只作参考，不硬拦截。');
@@ -119,19 +119,20 @@ export function createScenarioEditor({doc,initial={},onChange=null}) {
     const condition=control(doc,'scenario_section_condition',value.condition||'',false,'可选：例如守军集结后');
     const conditionField=field(doc,'成立条件（可选）',condition);
     const keywords=control(doc,'scenario_section_keywords',value.keywords||'',false,'多个关键词用逗号分隔，例如：斯坦索姆,阿尔萨斯');
-    const keywordField=field(doc,'绿灯关键词（可选）',keywords,'自动包含条目名称；地区资料还包含地区名称。此处可以补充别称。');
+    const keywordField=field(doc,'绿灯关键词（可选）',keywords,'地区/阵营自动使用条目名称；地区也包含地点，可补充种族、怪物或组织的别名。');
     const body=control(doc,'scenario_section_content',value.content||'',true,'原作背景、剧情、世界知识……');
     body.rows=5;
     card.append(head,field(doc,'资料名称 *',name),field(doc,'资料类型',kind),keywordField,field(doc,'时间表达',clock),
       timeField,calendar,afterField,locationField,conditionField,field(doc,'详细资料 *',body));
     const visibility=()=>{
-      const dynamic=kind.value==='macro'||kind.value==='location';
+      const dynamic=kind.value==='macro'||kind.value==='location'||kind.value==='faction';
+      keywordField.hidden=kind.value==='macro'||kind.value==='always';
       clock.parentElement.hidden=!dynamic;
       timeField.hidden=!dynamic||clock.value==='after';
       calendar.hidden=!dynamic||clock.value!=='date';
       afterField.hidden=kind.value!=='macro'||clock.value!=='after';
       conditionField.hidden=kind.value!=='macro';
-      locationField.hidden=kind.value==='always';
+      locationField.hidden=kind.value==='always'||kind.value==='faction';
     };
     kind.addEventListener('change',visibility);clock.addEventListener('change',visibility);
     up.addEventListener('click',()=>{const i=cards.indexOf(card);if(i>0){cards.splice(i,1);cards.splice(i-1,0,card);list.insertBefore(card,cards[i]||null);syncCards();}});

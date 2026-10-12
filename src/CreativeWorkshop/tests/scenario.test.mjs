@@ -52,8 +52,8 @@ test('宏观节点由事件名称、日期与前因自动排期，正文不写�
   assert.deepEqual(entries.map(e=>e.position.order),[200,201,210,211,212,213,214]);
   assert.ok(entries.every(e=>e.position.type==='before_character_definition'));
   assert.ok(entries.every(e=>e.content.includes('getMessageVar("stat_data"')));
-  assert.equal(entries[3].strategy.type,'selective');
-  assert.deepEqual(entries[3].strategy.keys,['斯坦索姆抉择']);
+  assert.equal(entries[3].strategy.type,'constant');
+  assert.deepEqual(entries[3].strategy.keys,[]);
   assert.equal(entries[5].strategy.type,'selective');
   assert.deepEqual(entries[5].strategy.keys,['洛丹伦']);
   assert.ok(entries[3].content.includes('__rwDate'));
@@ -138,22 +138,25 @@ test('世界名称必须独立填写；日历和资料日期完全可选，两�
   }
   assert.match(ui,/可选，不选日期也能保存/);
 });
-test('地区与宏观剧情是绿灯，并能在不运行世界推进时由 EJS 日期独立筛选',()=>{
+test('宏观剧情蓝灯按阶段与日期运行；地区和阵营绿灯；通关后全部 EJS 熄灭',()=>{
   const b=buildScenarioArtifacts({
     scenario_world:'艾泽拉斯',scenario_time:'2026年-10月-12日',
     scenario_sections:[
       {title:'斯坦索姆抉择',type:'macro',timeType:'date',time:'2026年-10月-14日',keywords:'斯坦索姆,阿尔萨斯',content:'王子面临抉择'},
       {title:'洛丹伦',type:'location',timeType:'date',time:'2026年-10月-13日',location:'东部王国-洛丹伦',content:'洛丹伦王国资料'},
+      {title:'兽人氏族',type:'faction',keywords:'兽人,部落',content:'兽人与氏族背景'},
       {title:'魔法法则',type:'always',content:'圣光与魔法存在'},
     ],
   },'魔兽世界');
-  const [macro,region,always]=b[0].content.entries.slice(2);
-  assert.equal(macro.strategy.type,'selective');
-  assert.deepEqual(macro.strategy.keys,['斯坦索姆抉择','斯坦索姆','阿尔萨斯']);
+  const [macro,region,faction,always]=b[0].content.entries.slice(2);
+  assert.equal(macro.strategy.type,'constant');
+  assert.deepEqual(macro.strategy.keys,[]);
   assert.equal(region.strategy.type,'selective');
   assert.deepEqual(region.strategy.keys,['洛丹伦','东部王国-洛丹伦']);
+  assert.equal(faction.strategy.type,'selective');
+  assert.deepEqual(faction.strategy.keys,['兽人氏族','兽人','部落']);
   assert.equal(always.strategy.type,'constant');
-  // 只模拟已经激活的绿灯 EJS 层，不需要世界推进引擎、后台事件或因果轨道。
+  // EJS 在没有世界推进引擎和后台时照样运作；宏观不依靠正文关键词扫描。
   const gate=(entry,world)=>{
     const prefix=entry.content.slice(3,entry.content.indexOf('_%>'));
     const run=new Function('getMessageVar','_',prefix+'return true; } return false;');
@@ -170,11 +173,29 @@ test('地区与宏观剧情是绿灯，并能在不运行世界推进时由 EJS 
   assert.equal(gate(region,bare('2026年-10月-12日')),false);
   assert.equal(gate(region,bare('2026年-10月-13日')),true);
   assert.equal(gate(region,bare('2026年-10月-13日','卡利姆多')),false);
+  assert.equal(gate(faction,bare('2026年-10月-13日','卡利姆多')),true,'阵营资料无需限制在某地区');
   assert.equal(gate(region,{...bare('2026年-10月-14日'),名称:'其他世界'}),false);
   assert.equal(gate(macro,{...bare('2026年-10月-12日'),后台:{事件:{'斯坦索姆抉择':{状态:'进行中'}}}}),true,
     '因果偏移提前发生时，真实进行中状态优先');
   assert.equal(gate(macro,{...bare('2026年-10月-14日'),后台:{事件:{'斯坦索姆抉择':{状态:'已取消'}}}}),false);
-  assert.equal(gate(macro,bare('第三次战争初期')),true,'无法比较的虚构纪年不应锁死绿灯');
+  assert.equal(gate(macro,bare('第三次战争初期')),true,'无法比较的作品纪年由阶段回退决定是否显示');
+  const finalStatus={...bare('2026年-10月-14日'),后台:{事件:{'斯坦索姆抉择':{状态:'已完成'}}}};
+  for(const item of [b[0].content.entries[0],macro,region,faction,always]){
+    assert.equal(gate(item,finalStatus),false,'最终剧情已完成时，不再常驻：'+item.name);
+  }
+  for(const item of [b[0].content.entries[0],macro,region,faction,always]){
+    assert.equal(gate(item,{...bare('2026年-10月-14日'),因果轨道:{当前阶段:'副本通关'}}),false,'终章阶段停止加载：'+item.name);
+    assert.equal(gate(item,{...bare('2026年-10月-14日'),名称:'主神空间'}),false,'返回主神空间停止加载：'+item.name);
+  }
+  const second=buildScenarioArtifacts({scenario_world:'艾泽拉斯',scenario_sections:[
+    {title:'瘟疫扩散',type:'macro',timeType:'date',time:'2026年-10月-12日',content:'瘟疫'},
+    {title:'斯坦索姆抉择',type:'macro',timeType:'date',time:'2026年-10月-14日',content:'城市抉择'},
+    {title:'北伐',type:'macro',timeType:'date',time:'2026年-10月-16日',content:'远征'},
+  ]},'魔兽世界').at(0).content.entries;
+  assert.equal(gate(second[2],{...bare('2026年-10月-14日'),因果轨道:{当前阶段:'瘟疫扩散'}}),false,
+    '不开世界推进而日期已走到下一章节时，不应继续读旧剧情');
+  assert.equal(gate(second[3],bare('2026年-10月-14日')),true,'世界时间可自动切换宏观阶段');
+  assert.equal(gate(second[4],bare('2026年-10月-14日')),false,'未来章节不会同时全量输出');
 });
 test('旧近期事件编辑时软迁为地区/常驻资料，不再出现近期事件创作项',()=>{
   const src=readFileSync(new URL('../views/author/scenario-editor.js',import.meta.url),'utf8');

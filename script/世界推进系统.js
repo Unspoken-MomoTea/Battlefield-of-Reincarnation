@@ -2030,15 +2030,18 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             const macroNames=new Set(macroEntries.map(([name])=>name));
             const patches=[];
             let line=[];
-            const existingValid=existing.length>=3&&existing.length<=5&&existing.every(name=>macroNames.has(name));
+            // 完成/取消的旧节点不能永久占据 3～5 条宏观窗口，优先跟随当前仍开放的节点。
+            const openNames=macroEntries.filter(([,e])=>['待发生','进行中'].includes(e.状态)).map(([name])=>name);
+            const existingValid=existing.length>=3&&existing.length<=5
+                &&existing.every((name,index)=>name===openNames[index]);
             if(existingValid)line=existing.slice(0,5);
             else {
                 // 因果轨道只能由宏观事件投影；事实不足时等待模型补齐，不拿近期事件凑骨架。
-                if(macroEntries.length<3)return patches;
+                if(openNames.length<3)return patches;
                 const chosen=[],seen=new Set();
                 const take=name=>{if(name&&macroNames.has(name)&&!seen.has(name)){seen.add(name);chosen.push(name);}};
-                take(orbit.当前阶段);
-                for(const [name] of macroEntries)take(name);
+                if(openNames.includes(orbit.当前阶段))take(orbit.当前阶段);
+                for(const name of openNames)take(name);
                 if(chosen.length<3)return patches;
                 line=chosen.slice(0,5);
                 const story=line.join(' -> ');
@@ -2047,7 +2050,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             const nextName=line.find(name=>(stat.世界[PATH].事件[name]||{}).状态==='待发生')||'';
             if(orbit.下一节点!==nextName){orbit.下一节点=nextName;patches.push({op:'replace',path:'/世界/因果轨道/下一节点',value:nextName});}
             const current=line.find(name=>(stat.世界[PATH].事件[name]||{}).状态==='进行中');
-            if(current&&(!orbit.当前阶段||orbit.当前阶段==='待初始化')){
+            if(current&&(!orbit.当前阶段||orbit.当前阶段==='待初始化'||(macroNames.has(orbit.当前阶段)&&orbit.当前阶段!==current))){
                 orbit.当前阶段=current;
                 patches.push({op:'replace',path:'/世界/因果轨道/当前阶段',value:current});
             }

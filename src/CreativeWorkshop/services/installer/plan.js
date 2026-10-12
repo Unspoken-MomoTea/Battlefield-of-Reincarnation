@@ -41,6 +41,9 @@ export function buildArtifactPlan(installed) {
         extra: {
           ...(entry.extra ?? {}),
           reincarnationWorkshop: {
+            ...(dataKinds.has('scenario') && entry.extra?.reincarnationWorkshop?.scenario === true
+              ? { scenario: true, scenarioWorld: String(entry.extra.reincarnationWorkshop.scenarioWorld || '') }
+              : {}),
             sourceId: installed.id, sourceType: 'project_artifact',
             sourceTitle: installed.name, sourceVersion: installed.version,
             artifactIndex: index, artifactName: artifact.name,

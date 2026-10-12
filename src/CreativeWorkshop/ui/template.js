@@ -40,6 +40,7 @@ export function workshopTemplate(version) {
       <button class="rw-tab rw-nav-filter" data-category-filter="extension" data-kind-filter="extension" type="button">扩展</button>
       <button class="rw-tab rw-nav-filter" data-character-home type="button">角色</button>
       <button class="rw-tab rw-nav-filter" data-category-filter="extension" data-kind-filter="store_catalog" type="button">开局商店</button>
+      <button class="rw-tab rw-nav-filter" data-category-filter="extension" data-kind-filter="scenario" type="button">副本</button>
       <div class="rw-nav-divider"></div>
       <div class="rw-nav-label" data-role="market-nav-label" hidden>交易</div>
       <button class="rw-tab rw-market-tab" data-tab="market" type="button" hidden>空间集市</button>

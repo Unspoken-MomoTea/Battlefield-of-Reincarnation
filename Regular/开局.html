@@ -1226,7 +1226,7 @@
     async function loadOpeningScenarios(hostData = undefined) {
         try {
             const bridged = hostData === undefined ? await loadHostOpeningData() : hostData;
-            let rows = bridged?.scenarios;
+            let rows = bridged && bridged.scenarios;
             if (!rows) {
                 const db = await openingDb();
                 const projects = await new Promise((resolve,reject) => {
@@ -1235,12 +1235,12 @@
                     request.onerror=()=>reject(request.error);
                 });
                 db.close();
-                rows = projects.filter(project=>project?.applied).flatMap(project=>(project.bundle?.artifacts||[])
-                    .filter(artifact=>artifact?.kind==='data'&&artifact.content?.kind==='scenario')
+                rows = projects.filter(project=>project && project.applied).flatMap(project=>((project.bundle && project.bundle.artifacts)||[])
+                    .filter(artifact=>artifact && artifact.kind==='data'&&artifact.content && artifact.content.kind==='scenario')
                     .map(artifact=>({ ...structuredClone(artifact.content), id:'workshop:scenario:'+project.id,
                         sourceProjectId:project.id,sourceProjectName:project.name, name:artifact.content.world })));
             }
-            openingScenarios = rows.filter(row=>row?.world && ['both','multi','single'].includes(row.mode||'both'));
+            openingScenarios = rows.filter(row=>row && row.world && ['both','multi','single'].includes(row.mode||'both'));
             DB.plots = DB.plots.filter(plot=>!plot._sourceProjectId);
             for (const row of openingScenarios.filter(row=>row.mode!=='single')) {
                 DB.plots.push({ id:row.id,cat:'workshop',name:'【'+row.world+'】',type:'工坊副本 · '+(row.sourceProjectName||row.world),
@@ -3105,7 +3105,7 @@
                     const scenario = openingScenarios.find(row=>row.id===selectedSingleScenario && row.mode!=='multi' && row.world===$('sw-name').value.trim());
                     _set(c, 'stat_data.世界.因果轨道', {
                         当前阶段: $('sw-mainstate').value.trim() || '未设定',
-                        故事线: scenario?.story || '', 下一节点: scenario?.next || '', 偏移记录: {}
+                        故事线: scenario && scenario.story || '', 下一节点: scenario && scenario.next || '', 偏移记录: {}
                     });
                     if (scenario) {
                         _set(c, 'stat_data.世界.地点', scenario.location || '');
@@ -3160,7 +3160,7 @@
 主线状态: ${$('sw-mainstate').value.trim() || '未设定'}
 切入身份: ${$('sw-identity').value.trim() || '角色'}
 主神任务: ${$('sw-goal').value.trim() || '无'}
-${openingScenarios.find(row=>row.id===selectedSingleScenario && row.world===$('sw-name').value.trim())?.story ? '默认宏观故事线: '+openingScenarios.find(row=>row.id===selectedSingleScenario).story : ''}`;
+${(openingScenarios.find(row=>row.id===selectedSingleScenario && row.world===$('sw-name').value.trim())||{}).story ? '默认宏观故事线: '+openingScenarios.find(row=>row.id===selectedSingleScenario).story : ''}`;
         } else if (selectedPlot) {
             const p = DB.plots.find(x => x.id === selectedPlot);
             if (p) {

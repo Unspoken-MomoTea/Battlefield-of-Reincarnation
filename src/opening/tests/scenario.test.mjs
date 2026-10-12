@@ -15,6 +15,7 @@ function set(target,path,value){
 const scenario={
   world:'艾泽拉斯',time:'2026年-10月-13日-上午',stage:'亡灵瘟疫扩散',
   story:'亡灵瘟疫扩散 -> 斯坦索姆抉择 -> 北伐',next:'斯坦索姆抉择',
+  calendar:{名称:'艾泽拉斯历',月份天数:[30,30,30,30,30,30,30,30,30,30,30,30],闰年规则:'无'},
   initialEvents:{
     '亡灵瘟疫扩散':{状态:'进行中',时间:'2026年-10月-12日-上午',描述:'瘟疫',前因:[]},
     '斯坦索姆抉择':{状态:'待发生',时间:'2026年-10月-14日-上午',描述:'城市危机',前因:['亡灵瘟疫扩散']},
@@ -33,6 +34,7 @@ test('首次进入时把少量宏观节点注入世界后台，因果轨道沿�
   seed(saved,scenario,set,'主神空间');
   const w=saved.stat_data.世界;
   assert.equal(w.时间,scenario.time);
+  assert.equal(w.历法.名称,'艾泽拉斯历');
   assert.equal(w.后台.事件['亡灵瘟疫扩散'].分类,'宏观节点');
   assert.equal(w.后台.事件['斯坦索姆抉择'].状态,'待发生');
   assert.deepEqual(w.后台.事件['斯坦索姆抉择'].前因,['亡灵瘟疫扩散']);

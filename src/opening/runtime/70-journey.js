@@ -32,6 +32,9 @@
             };
         }
         set(c,'stat_data.世界.后台.事件',bucket);
+        if (scenario.calendar && Array.isArray(scenario.calendar.月份天数) && scenario.calendar.月份天数.length && (!sameWorld || !(world.历法 && world.历法.名称))) {
+            set(c,'stat_data.世界.历法',structuredClone(scenario.calendar));
+        }
         const orbit = world.因果轨道 || {};
         if (!sameWorld || (!orbit.故事线 && !orbit.下一节点)) {
             set(c,'stat_data.世界.因果轨道',{

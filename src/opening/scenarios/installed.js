@@ -22,6 +22,7 @@ export function projectScenarioCatalog(projects = []) {
           rank: data.rank || 'Ⅲ', tier: data.tier || 'F~D',
           overview: data.overview || '',
           initialEvents: data.initialEvents && typeof data.initialEvents === 'object' ? structuredClone(data.initialEvents) : {},
+          calendar: data.calendar && typeof data.calendar === 'object' ? structuredClone(data.calendar) : null,
         });
       }
     }

@@ -49,11 +49,21 @@ export function createScenarioEditor({doc,initial={},onChange=null}) {
   const laws=control(doc,'scenario_laws',initial.scenario_laws,true,'世界特殊法则，以分号分隔（可留空）');
   const identity=control(doc,'scenario_identity',initial.scenario_identity,false,'例如：洛丹伦旅行者');
   const start=control(doc,'scenario_time',initial.scenario_time,false,'具体日期、作品纪年或剧情时期');
+  const calendarDetails=element(doc,'details','','rw-scenario-custom-calendar');
+  calendarDetails.style.marginBlock='8px';
+  calendarDetails.append(element(doc,'summary','自定义作品历法（可选）'));
+  const calendarName=control(doc,'scenario_calendar_name',initial.scenario_calendar_name||'',false,'例如：艾泽拉斯历');
+  const calendarMonths=control(doc,'scenario_calendar_months',initial.scenario_calendar_months||'',false,'例如：31,28,31,30,31,30,31,31,30,31,30,31');
+  const calendarLeap=control(doc,'scenario_calendar_leap',initial.scenario_calendar_leap||'',false,'例如：每四年增加一天');
+  calendarDetails.append(field(doc,'历法名称',calendarName),field(doc,'每月天数',calendarMonths,'1～24个月，用逗号隔开。'),
+    field(doc,'闰年规则',calendarLeap));
+  calendarDetails.open=Boolean(calendarName.value||calendarMonths.value||calendarLeap.value);
+
   root.append(
     field(doc,'世界法则',laws,'副本独特规则；已有通用规则无需重复填写。'),
     field(doc,'切入身份',identity),
     field(doc,'初始时间锚点',start,'日历可选明确日期；虚构历法、模糊时期可直接填写文字。'),
-    bindCalendar(doc,start),
+    bindCalendar(doc,start), calendarDetails,
   );
   const title=element(doc,'div','副本资料 · 时间轴','rw-publish-step-title');
   const help=element(doc,'p','宏观事件自动组成因果轨道；常驻设定/地区资料只放世界书。可用日历或相对事件时间，不必硬编原著日期。','rw-muted');
@@ -117,6 +127,8 @@ export function createScenarioEditor({doc,initial={},onChange=null}) {
     return {
       scenario_world:'',scenario_mode:mode,scenario_time:start.value,
       scenario_laws:laws.value,scenario_identity:identity.value,
+      scenario_calendar_name:calendarName.value,scenario_calendar_months:calendarMonths.value,
+      scenario_calendar_leap:calendarLeap.value,
       scenario_sections:cards.map(card=>({
         title:card.querySelector('[name="scenario_section_title"]').value,
         type:card.querySelector('[name="scenario_section_type"]').value,

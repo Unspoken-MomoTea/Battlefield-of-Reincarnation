@@ -76,6 +76,21 @@ test('编辑回填、安装保留场景标识，启用后出现在开局选择',
   assert.equal(catalog.length,1);
   assert.equal(Object.keys(catalog[0].initialEvents).length,3);
 });
+test('自定义历法可使用现有世界.历法字段，包含第13个月的作品日期',()=>{
+  const custom=buildScenarioArtifacts({
+    ...sample,
+    scenario_calendar_name:'异界历',
+    scenario_calendar_months:Array(13).fill(30).join(','),
+    scenario_calendar_leap:'每十年增一天',
+    scenario_time:'303年-13月-1日',
+    scenario_sections:[{title:'异界王朝',type:'macro',timeType:'date',time:'303年-13月-2日',content:'王朝转折'}],
+  },'自定义世界');
+  assert.equal(custom[1].content.calendar.名称,'异界历');
+  assert.equal(custom[1].content.calendar.月份天数.length,13);
+  const reopened=dedicatedInitialValues(custom,'scenario');
+  assert.equal(reopened.scenario_calendar_name,'异界历');
+  assert.equal(reopened.scenario_calendar_months,Array(13).fill(30).join(','));
+});
 test('防止 EJS 代码混入和超出资料条数',()=>{
   assert.throws(()=>buildScenarioArtifacts({...sample,scenario_sections:[{title:'bad',type:'always',content:'<% malicious %>'}]},'艾泽拉斯'),/EJS/u);
   assert.throws(()=>buildScenarioArtifacts({...sample,scenario_sections:Array.from({length:71},()=>({title:'x',type:'always',content:'x'}))},'艾泽拉斯'),/70/u);

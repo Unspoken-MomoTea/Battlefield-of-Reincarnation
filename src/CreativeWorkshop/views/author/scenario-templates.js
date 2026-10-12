@@ -19,6 +19,23 @@ function dateKey(value) {
   if(m<1||m>12||d<1||d>31)return '';
   return String(y).padStart(4,'0')+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
 }
+function parseCalendar(source) {
+  const name=text(source.scenario_calendar_name,'历法名称',80);
+  const raw=text(source.scenario_calendar_months,'每月天数',160);
+  const leap=text(source.scenario_calendar_leap,'闰年规则',160);
+  if(!name&&!raw&&!leap)return null;
+  const days=raw.split(/[，,;；\s]+/u).filter(Boolean).map(Number);
+  if(!name||days.length<1||days.length>24||days.some(n=>!Number.isInteger(n)||n<1||n>99))
+    throw new Error('自定义历法需填写名称与1～24个月的有效天数');
+  return {名称:name,月份天数:days,闰年规则:leap};
+}
+function customDateValid(value,calendar) {
+  if(!calendar)return false;
+  const m=clean(value).match(/^(\d{1,4})年[- ]?(\d{1,2})月[- ]?(\d{1,2})日/u);
+  if(!m)return false;
+  const month=Number(m[2]),day=Number(m[3]);
+  return month>=1&&month<=calendar.月份天数.length&&day>=1&&day<=calendar.月份天数[month-1];
+}
 function entry(name, world, content, expression, order) {
   return {
     name, enabled:true,
@@ -37,7 +54,7 @@ function entry(name, world, content, expression, order) {
     extra:{reincarnationWorkshop:{scenario:true,scenarioWorld:world}},
   };
 }
-function normalizeSections(rows) {
+function normalizeSections(rows, calendar) {
   if(!Array.isArray(rows)||!rows.length)throw new Error('至少添加一条副本资料');
   if(rows.length>SCENARIO_MAX_SECTIONS)throw new Error('副本资料最多'+SCENARIO_MAX_SECTIONS+'条');
   const result=rows.map((source,index)=>{
@@ -50,7 +67,7 @@ function normalizeSections(rows) {
     const location=text(source?.location|| (type==='location'?source?.match:''),'第'+(index+1)+'条地点',160);
     const condition=text(source?.condition,'第'+(index+1)+'条条件',260);
     if(!title||!content)throw new Error('第'+(index+1)+'条资料缺少名称或内容');
-    if(timeType==='date'&&time&&!dateKey(time))throw new Error('「'+title+'」的日期格式应为 年-月-日，可改为作品时期');
+    if(timeType==='date'&&time&&!dateKey(time)&&!customDateValid(time,calendar))throw new Error('「'+title+'」的日期格式应为 年-月-日，可改为作品时期');
     if(type==='location'&&!location)throw new Error('「'+title+'」需要填写关联地区');
     return {title,type,content,timeType,time,after,location,condition};
   });
@@ -129,7 +146,8 @@ export function buildScenarioArtifacts(source, projectName) {
   const identity=text(source.scenario_identity,'切入身份',160);
   const mode=MODES.has(source.scenario_mode)?source.scenario_mode:'both';
   if(!world)throw new Error('请填写工坊作品名称');
-  const sections=normalizeSections(source.scenario_sections||[]);
+  const calendar=parseCalendar(source);
+  const sections=normalizeSections(source.scenario_sections||[],calendar);
   const macros=orderedScenarioMacros(sections);
   const current=macros.filter(row=>dateKey(time)&&dateKey(row.time)&&dateKey(row.time)<=dateKey(time)).at(-1);
   const future=macros.filter(row=>!dateKey(time)||!dateKey(row.time)||dateKey(row.time)>dateKey(time));
@@ -165,7 +183,7 @@ export function buildScenarioArtifacts(source, projectName) {
     entries.push(entry('[副本] '+world+' · '+row.title,world,content,sceneExpression(row),210+index));
   });
   const data={schema_version:1,kind:'scenario',world,time:initialTime,stage,story,next,
-    mode,laws,identity,rank:'Ⅲ',tier:'F~D',sections};
+    mode,laws,identity,calendar,rank:'Ⅲ',tier:'F~D',sections};
   data.initialEvents=scenarioEventRecords(data);
   return [
     {kind:'worldbook',name:safeName(projectName||world)+'.scenario.worldbook.json',format:'json',content:{entries}},
@@ -180,5 +198,9 @@ export function scenarioInitialValues(artifacts) {
     return row;
   });
   return {scenario_world:data.world||'',scenario_time:data.time||'',scenario_laws:data.laws||'',
-    scenario_identity:data.identity||'',scenario_mode:data.mode||'both',scenario_sections:structuredClone(sections)};
+    scenario_identity:data.identity||'',scenario_mode:data.mode||'both',
+    scenario_calendar_name:data.calendar?.名称||'',
+    scenario_calendar_months:Array.isArray(data.calendar?.月份天数)?data.calendar.月份天数.join(','):'',
+    scenario_calendar_leap:data.calendar?.闰年规则||'',
+    scenario_sections:structuredClone(sections)};
 }

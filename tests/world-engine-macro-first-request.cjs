@@ -106,13 +106,11 @@ async function requirement(x) {
     ? {摘要:'先建立一个节点并推进当前治安。',事件:[events[0]],人物:[ordinaryPerson]}
     : {摘要:'补齐其余节点。',事件:events.slice(1),因果:{宏观顺序:names}});
   retry.engine.config.retryAttempts = 2;
-  assert.equal(await retry.engine.run(),true,'首次回复仍遗漏时，纠错继续保留已接受结果');
-  assert.equal(retry.calls(),2);
+  assert.equal(await retry.engine.run(),true,'模型只建立一个宏观节点时，应先提交本轮有效事件');
+  assert.equal(retry.calls(),1,'节点数量不足不能逼迫本轮继续重Roll');
   assert.equal(retry.writes(),1);
-  const correction = retry.requests[1].payload.纠错重试;
-  assert.deepEqual(correction.已接受业务结果.事件.map(e=>e.名称),[names[0]]);
-  assert.match(correction.补充清单.join('\n'),/还需补充至少2个/);
-  assert.deepEqual(correction.补充清单.slice(1),first.task.交付要求.slice(1),'首次请求与纠错的事件/排期/因果标准保持一致');
-  assert.equal(Object.values(retry.read().世界.后台.事件).filter(e=>e.分类==='宏观节点').length,3);
+  assert.equal(Object.values(retry.read().世界.后台.事件).filter(e=>e.分类==='宏观节点').length,1);
+  const nextRequest=await requirement(retry);
+  assert.equal(nextRequest.task.至少补充节点数,2,'剩余两条宏观节点继续作为下一轮规划目标');
   console.log('world-engine first-request macro planning passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -24,7 +24,7 @@ assert.match(html,/id="partner-mode-custom" class="active"[\s\S]*id="partner-mod
 assert.ok(html.includes('partnerNode && !partnerIsCompleteAsset ? `[协同实体补全指令]'),'complete installed partners do not receive the AI completion instruction');
 assert.match(html,/opening_store_catalogs/,'opening reads installed workshop store catalogs');
 assert.match(html,/workshop:' \+ row\.sourceProjectId \+ ':' \+ sourceId/,'workshop store ids are namespaced');
-assert.match(html,/Promise\.all\(\[loadOpeningAssets\(\), loadOpeningStoreCatalogs\(\)\]\)/,'opening loads assets and store catalogs together');
+assert.match(html,/Promise\.all\(\[loadOpeningAssets\(\), loadOpeningStoreCatalogs\(\), loadOpeningScenarios\(\)\]\)/,'opening loads assets and store catalogs together');
 assert.match(html,/openingDataReady[\s\S]*finally\(\(\) => init\(\)\)/,'opening waits for installed assets before init');
 assert.match(html,/const libraryIdentities = openingCharacterBuild && Array\.isArray\(openingCharacterBuild\.身份\)/,'opening keeps identities published with installed characters');
 assert.match(html,/const resolvedIdentities = \[\.\.\.new Set\(/,'opening merges published identities with the current start identity, gender and age');

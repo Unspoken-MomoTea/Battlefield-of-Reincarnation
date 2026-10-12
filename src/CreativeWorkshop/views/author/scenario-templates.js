@@ -1,7 +1,7 @@
 // 副本是世界书 + 现有世界后台事件的数据来源，不创建新的 MVU 剧情字段。
 export const SCENARIO_ORDER_START = 200;
 export const SCENARIO_MAX_SECTIONS = 70;
-const SECTION_TYPES = new Set(['macro','near','location','always']);
+const SECTION_TYPES = new Set(['macro','location','always']);
 const TIME_TYPES = new Set(['date','phase','after']);
 const MODES = new Set(['both','multi','single']);
 const clean = value => String(value ?? '').trim();
@@ -36,15 +36,30 @@ function customDateValid(value,calendar) {
   const month=Number(m[2]),day=Number(m[3]);
   return month>=1&&month<=calendar.月份天数.length&&day>=1&&day<=calendar.月份天数[month-1];
 }
-function entry(name, world, content, expression, order) {
+function keywordList(row) {
+  const candidates=[row.title, ...(row.type==='location'?[row.location]:[]),
+    ...String(row.keywords||'').split(/[,，、;；\n]+/u)];
+  return [...new Set(candidates.map(clean).filter(Boolean))].slice(0,32);
+}
+function dateExpression(row, calendar) {
+  if(row.timeType!=='date'||!row.time)return 'true';
+  // 时间字符串为作品时期时不能比较，退回关键词选择；不因未知时间封死副本。
+  const key=dateKey(row.time)||(customDateValid(row.time,calendar)
+    ? String(row.time).match(/^(\d{1,4})年[- ]?(\d{1,2})月[- ]?(\d{1,2})日/u).slice(1,4)
+      .map((n,i)=>n.padStart(i===0?4:2,'0')).join('-') : '');
+  return key?'(!__rwDate || __rwDate >= '+JSON.stringify(key)+')':'true';
+}
+function entry(name, world, content, expression, order, keywords=[]) {
   return {
     name, enabled:true,
-    strategy:{type:'constant',keys:[],keys_secondary:{logic:'and_any',keys:[]},scan_depth:'same_as_global'},
+    strategy:{type:keywords.length?'selective':'constant',keys:keywords,keys_secondary:{logic:'and_any',keys:[]},scan_depth:'same_as_global'},
     position:{type:'before_character_definition',role:'system',order},
     content:[
       '<%_',
       'const __rw = getMessageVar("stat_data", { defaults: {} }) || {};',
       'const __w = _.get(__rw, "世界", {});',
+      'const __m = String(__w.时间||"").match(/(\\d{1,4})年[- ]?(\\d{1,2})月[- ]?(\\d{1,2})日|(\\d{4})-(\\d{2})-(\\d{2})/);',
+      'const __rwDate = __m ? [__m[1]||__m[4],__m[2]||__m[5],__m[3]||__m[6]].map((n,i)=>String(n).padStart(i?2:4,"0")).join("-") : "";',
       'if (String(__w.名称 || "") === '+JSON.stringify(world)+' && ('+expression+')) {',
       '_%>',
       content,
@@ -60,16 +75,17 @@ function normalizeSections(rows, calendar) {
   const result=rows.map((source,index)=>{
     const title=text(source?.title,'第'+(index+1)+'条名称',100);
     const content=text(source?.content,'第'+(index+1)+'条内容');
-    const type=SECTION_TYPES.has(source?.type)?source.type:source?.type==='event'?'macro':'always';
+    const type=SECTION_TYPES.has(source?.type)?source.type:source?.type==='event'?'macro':source?.type==='near'?(source?.location||source?.match?'location':'always'):'always';
     const timeType=TIME_TYPES.has(source?.timeType)?source.timeType:'phase';
     const time=text(source?.time,'第'+(index+1)+'条时间',160);
     const after=text(source?.after,'第'+(index+1)+'条前因',100);
     const location=text(source?.location|| (type==='location'?source?.match:''),'第'+(index+1)+'条地点',160);
     const condition=text(source?.condition,'第'+(index+1)+'条条件',260);
+    const keywords=text(source?.keywords,'第'+(index+1)+'条关键词',1000);
     if(!title||!content)throw new Error('第'+(index+1)+'条资料缺少名称或内容');
     if(timeType==='date'&&time&&!dateKey(time)&&!customDateValid(time,calendar))throw new Error('「'+title+'」的日期格式应为 年-月-日，可改为作品时期');
     if(type==='location'&&!location)throw new Error('「'+title+'」需要填写关联地区');
-    return {title,type,content,timeType,time,after,location,condition};
+    return {title,type,content,timeType,time,after,location,condition,keywords};
   });
   const names=new Set();
   for(const row of result) {
@@ -127,17 +143,21 @@ export function scenarioEventRecords(scenario, {max=5}={}) {
   });
   return records;
 }
-function sceneExpression(row) {
+function sceneExpression(row,calendar) {
+  const date=dateExpression(row,calendar);
   if(row.type==='always')return 'true';
-  if(row.type==='location')return 'String(__w.地点 || "").includes('+JSON.stringify(row.location)+')';
-  if(row.type==='near')return 'String(__w.地点 || "").includes('+JSON.stringify(row.location||'__no_location__')+')';
+  if(row.type==='location'){
+    const place=JSON.stringify(row.location);
+    const placeCheck='(!String(__w.地点||"").trim() || String(__w.地点||"")==="待初始化"'
+      +' || String(__w.地点||"").includes('+place+') || '+place+'.includes(String(__w.地点||"")))';
+    return '('+placeCheck+' && '+date+')';
+  }
   const title=JSON.stringify(row.title);
-  return [
-    '(String(_.get(__w,"因果轨道.下一节点","")) === '+title,
-    '|| String(_.get(__w,"因果轨道.当前阶段","")) === '+title,
-    '|| String(_.get(__w,["后台","事件",'+title+',"状态"],"")) === "进行中")',
-    '&& !["已完成","已取消"].includes(String(_.get(__w,["后台","事件",'+title+',"状态"],"")))',
-  ].join(' ');
+  const state='String(_.get(__w,["后台","事件",'+title+',"状态"],""))';
+  // 世界推进关闭时事件可永远是“待发生”：不能将其当作强制门禁。
+  // 已发生真实因果优先；进行中允许早于原著日期发生。
+  return '(!["已完成","已取消"].includes('+state+') && ('
+    +state+'==="进行中" || '+date+'))';
 }
 export function buildScenarioArtifacts(source, projectName) {
   const world=text(source.scenario_world,'副本世界名称',80);
@@ -196,7 +216,9 @@ export function buildScenarioArtifacts(source, projectName) {
   sections.forEach((row,index)=>{
     const content=row.type==='macro'?'【原著事件】'+row.title+'\n【原定时间】'+(row.time||row.after+'之后')+'\n【原定情节】\n'+row.content:
       '【'+(row.type==='location'?'地区资料':'世界资料')+'】'+row.title+'\n'+row.content;
-    entries.push(entry('[副本] '+world+' · '+row.title,world,content,sceneExpression(row),210+index));
+    entries.push(entry('[副本] '+world+' · '+row.title,world,content,sceneExpression(row,calendar),210+index,
+      row.type==='always'?[]:keywordList(row)));
+
   });
   const data={schema_version:1,kind:'scenario',world,time:initialTime,stage,story,next,
     mode,laws,identity,calendar,rank,tier,location,currency,sections};
@@ -210,7 +232,8 @@ export function scenarioInitialValues(artifacts) {
   const data=artifacts.find(row=>row?.kind==='data'&&row.content?.kind==='scenario')?.content;
   if(!data)return {};
   const sections=(data.sections||[]).map(row=>{
-    if(row.type==='event')return {title:row.title,type:'macro',content:row.content,timeType:'phase',time:'',after:'',location:'',condition:''};
+    if(row.type==='event')return {title:row.title,type:'macro',content:row.content,timeType:'phase',time:'',after:'',location:'',condition:'',keywords:''};
+    if(row.type==='near')return {...row,type:row.location||row.match?'location':'always'};
     return row;
   });
   return {scenario_world:data.world||'',scenario_time:data.time||'',scenario_laws:data.laws||'',

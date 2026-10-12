@@ -83,7 +83,7 @@ export function createScenarioEditor({doc,initial={},onChange=null}) {
     bindCalendar(doc,start), calendarDetails,
   );
   const title=element(doc,'div','副本资料 · 时间轴','rw-publish-step-title');
-  const help=element(doc,'p','每张资料卡只需名称和内容。日期可留空；有准确日期可用日历，只有故事阶段可填模糊时间，或选择在某事件之后。宏观事件进入后台，详细正文仍留在世界书。','rw-muted');
+  const help=element(doc,'p','地区和宏观剧情使用绿灯关键词 + EJS 世界/日期筛选，即使关闭世界推进也能触发。仅作者编写原著宏观事件，临时的近期事件由 AI 自由生成。日期可选，未知日期时不做硬拦截。','rw-muted');
   const list=element(doc,'div','','rw-scenario-section-list');
   const add=element(doc,'button','＋ 新增资料卡片','rw-button');add.type='button';
   root.append(title,help,list,add);
@@ -106,10 +106,11 @@ export function createScenarioEditor({doc,initial={},onChange=null}) {
     const del=element(doc,'button','删除','rw-button danger');del.type='button';
     head.append(label,up,down,del);
     const name=control(doc,'scenario_section_title',value.title||'',false,'例如：斯坦索姆抉择');
-    const kind=picker(doc,'scenario_section_type',[['macro','宏观剧情事件'],['near','近期事件资料'],['location','地区资料'],['always','常驻世界资料']],value.type==='event'?'macro':value.type||'macro');
+    const legacyType=value.type==='near'?(value.location||value.match?'location':'always'):value.type;
+    const kind=picker(doc,'scenario_section_type',[['macro','宏观剧情事件'],['location','地区资料'],['always','常驻世界资料']],legacyType==='event'?'macro':legacyType||'macro');
     const clock=picker(doc,'scenario_section_time_type',[['phase','作品时期 / 模糊时间'],['date','明确日期（日历）'],['after','前置事件之后']],value.timeType||'phase');
     const time=control(doc,'scenario_section_time',value.time||'',false,'例如：第三次战争初期');
-    const timeField=field(doc,'事件时间（可选）',time);
+    const timeField=field(doc,'关联日期或时期（可选）',time,'明确日期用于 EJS 起始时间筛选；模糊时期只作参考，不硬拦截。');
     const calendar=bindCalendar(doc,time);
     const after=control(doc,'scenario_section_after',value.after||'',false,'填写另一条宏观事件的名称');
     const afterField=field(doc,'前置事件（选择「前置事件之后」时填写）',after,'其他时间类型均可留空。');
@@ -117,16 +118,18 @@ export function createScenarioEditor({doc,initial={},onChange=null}) {
     const locationField=field(doc,'关联地区（可选）',location);
     const condition=control(doc,'scenario_section_condition',value.condition||'',false,'可选：例如守军集结后');
     const conditionField=field(doc,'成立条件（可选）',condition);
+    const keywords=control(doc,'scenario_section_keywords',value.keywords||'',false,'多个关键词用逗号分隔，例如：斯坦索姆,阿尔萨斯');
+    const keywordField=field(doc,'绿灯关键词（可选）',keywords,'自动包含条目名称；地区资料还包含地区名称。此处可以补充别称。');
     const body=control(doc,'scenario_section_content',value.content||'',true,'原作背景、剧情、世界知识……');
     body.rows=5;
-    card.append(head,field(doc,'资料名称 *',name),field(doc,'资料类型',kind),field(doc,'时间表达',clock),
+    card.append(head,field(doc,'资料名称 *',name),field(doc,'资料类型',kind),keywordField,field(doc,'时间表达',clock),
       timeField,calendar,afterField,locationField,conditionField,field(doc,'详细资料 *',body));
     const visibility=()=>{
-      const dynamic=kind.value==='macro'||kind.value==='near';
+      const dynamic=kind.value==='macro'||kind.value==='location';
       clock.parentElement.hidden=!dynamic;
       timeField.hidden=!dynamic||clock.value==='after';
       calendar.hidden=!dynamic||clock.value!=='date';
-      afterField.hidden=!dynamic||clock.value!=='after';
+      afterField.hidden=kind.value!=='macro'||clock.value!=='after';
       conditionField.hidden=kind.value!=='macro';
       locationField.hidden=kind.value==='always';
     };
@@ -157,6 +160,7 @@ export function createScenarioEditor({doc,initial={},onChange=null}) {
         after:card.querySelector('[name="scenario_section_after"]').value,
         location:card.querySelector('[name="scenario_section_location"]').value,
         condition:card.querySelector('[name="scenario_section_condition"]').value,
+        keywords:card.querySelector('[name="scenario_section_keywords"]').value,
         content:card.querySelector('[name="scenario_section_content"]').value,
       })),
     };

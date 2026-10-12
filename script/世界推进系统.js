@@ -5004,6 +5004,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             return changed;
         }
         activation(entry,scan,force){
+            if(entry.scenario&&entry.mode==='selective')force=false; // 工坊副本绿灯始终遵守关键词，避免强制读取整部剧情。
             if(!String(entry.content||'').trim())return {read:false,reason:'内容为空'};
             if(force)return {read:true,reason:'强制读取'};
             if(!entry.enabled)return {read:false,reason:'条目禁用'};

@@ -1877,9 +1877,17 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         repairMacroPredecessors(stat) {
             const state=stat?.世界?.[PATH],orbit=stat?.世界?.因果轨道||{},patches=[]; if(!state)return patches;
             const stages=storyStages(orbit.故事线).filter(name=>state.事件?.[name]?.分类==='宏观节点'&&state.事件[name].状态!=='已取消');
+            // 不用自动补的线性前因反向覆盖既有因果：若会产生循环，则保留明确记录。
+            const dependsOn=(name,target,seen=new Set())=>{
+                if(name===target)return true;
+                if(seen.has(name))return false;
+                seen.add(name);
+                const parents=state.事件?.[name]?.前因;
+                return Array.isArray(parents)&&parents.some(parent=>dependsOn(parent,target,seen));
+            };
             for(let i=1;i<stages.length;i++){
                 const prev=stages[i-1],name=stages[i],event=state.事件[name],parents=Array.isArray(event.前因)?event.前因:[];
-                if(!parents.includes(prev)){
+                if(!parents.includes(prev)&&!dependsOn(prev,name)){
                     event.前因=[...parents,prev];
                     patches.push({op:'replace',path:pointer(['世界',PATH,'事件',name,'前因']),value:copy(event.前因)});
                 }
@@ -2021,38 +2029,46 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         }
         repairProjection(stat) {
             const orbit=stat.世界.因果轨道||(stat.世界.因果轨道={当前阶段:'',故事线:'',下一节点:'',偏移记录:{}});
-            const existing=storyStages(orbit.故事线);
-            const macroEntries=Object.entries(stat.世界[PATH]?.事件||{})
-                .filter(([,e])=>e.分类==='宏观节点'&&e.状态!=='已取消')
+            const records=stat.世界[PATH]?.事件||{};
+            // 无宏观事件时可能是人工故事线或刚进入的世界，不擅自覆盖。
+            if(!Object.values(records).some(e=>e?.分类==='宏观节点'))return [];
+            const ordered=Object.entries(records)
+                .filter(([,e])=>e?.分类==='宏观节点'&&['待发生','进行中'].includes(e.状态))
                 .map((item,index)=>({item,index,key:worldDateKey(item[1].时间||item[1].开始时间)}))
                 .sort((a,b)=>(a.key??Infinity)-(b.key??Infinity)||a.index-b.index)
-                .map(x=>x.item);
-            const macroNames=new Set(macroEntries.map(([name])=>name));
-            const patches=[];
-            let line=[];
-            // 完成/取消的旧节点不能永久占据 3～5 条宏观窗口，优先跟随当前仍开放的节点。
-            const openNames=macroEntries.filter(([,e])=>['待发生','进行中'].includes(e.状态)).map(([name])=>name);
-            const existingValid=existing.length>=3&&existing.length<=5
-                &&existing.every((name,index)=>name===openNames[index]);
-            if(existingValid)line=existing.slice(0,5);
-            else {
-                // 因果轨道只能由宏观事件投影；事实不足时等待模型补齐，不拿近期事件凑骨架。
-                if(openNames.length<3)return patches;
-                const chosen=[],seen=new Set();
-                const take=name=>{if(name&&macroNames.has(name)&&!seen.has(name)){seen.add(name);chosen.push(name);}};
-                if(openNames.includes(orbit.当前阶段))take(orbit.当前阶段);
-                for(const name of openNames)take(name);
-                if(chosen.length<3)return patches;
-                line=chosen.slice(0,5);
-                const story=line.join(' -> ');
-                if(orbit.故事线!==story){orbit.故事线=story;patches.push({op:'replace',path:'/世界/因果轨道/故事线',value:story});}
+                .map(x=>x.item[0]);
+            const openSet=new Set(ordered);
+            const previous=storyStages(orbit.故事线);
+            // 已确认的因果改序优先：仅移除失效节点，缺位时才在末尾补后续宏观节点。
+            const retained=[...new Set(previous.filter(name=>openSet.has(name)))].slice(0,5);
+            const intact=retained.length===previous.length&&retained.length>=3&&retained.length<=5;
+            const line=intact?retained.slice():retained;
+            if(!intact)for(const name of ordered){
+                if(line.length>=5)break;
+                if(!line.includes(name))line.push(name);
             }
-            const nextName=line.find(name=>(stat.世界[PATH].事件[name]||{}).状态==='待发生')||'';
-            if(orbit.下一节点!==nextName){orbit.下一节点=nextName;patches.push({op:'replace',path:'/世界/因果轨道/下一节点',value:nextName});}
-            const current=line.find(name=>(stat.世界[PATH].事件[name]||{}).状态==='进行中');
-            if(current&&(!orbit.当前阶段||orbit.当前阶段==='待初始化'||(macroNames.has(orbit.当前阶段)&&orbit.当前阶段!==current))){
-                orbit.当前阶段=current;
-                patches.push({op:'replace',path:'/世界/因果轨道/当前阶段',value:current});
+            const patches=[];
+            const story=line.join(' -> ');
+            if(orbit.故事线!==story){
+                orbit.故事线=story;
+                patches.push({op:'replace',path:'/世界/因果轨道/故事线',value:story});
+            }
+            const waiting=name=>records[name]?.状态==='待发生';
+            const nextName=line.includes(orbit.下一节点)&&waiting(orbit.下一节点)
+                ?orbit.下一节点
+                :(line.find(waiting)||'');
+            if(orbit.下一节点!==nextName){
+                orbit.下一节点=nextName;
+                patches.push({op:'replace',path:'/世界/因果轨道/下一节点',value:nextName});
+            }
+            const stageName=String(orbit.当前阶段||'');
+            const stageRecord=records[stageName];
+            const staleStage=stageRecord?.分类==='宏观节点'&&['已完成','已取消'].includes(stageRecord.状态);
+            const activeStage=line.find(name=>records[name]?.状态==='进行中')||'';
+            // 只补空阶段或替换已失效事件，保留 AI 写入的现实局势摘要。
+            if((!stageName||stageName==='待初始化'||staleStage)&&orbit.当前阶段!==(activeStage||'')){
+                orbit.当前阶段=activeStage;
+                patches.push({op:'replace',path:'/世界/因果轨道/当前阶段',value:activeStage});
             }
             return patches;
         }
@@ -3883,10 +3899,9 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         ensureMacroBackbone(next,timeline,required=true) {
             if(required&&timeline?.需要补充远期){
                 const allMacro=Object.entries(next?.世界?.[PATH]?.事件||{}).filter(([,e])=>e.分类==='宏观节点'&&e.状态!=='已取消');
-                const activeMacro=allMacro.filter(([,e])=>e.状态==='进行中');
-                const futureMacro=allMacro.filter(([,e])=>e.状态==='待发生');
                 const openMacro=allMacro.filter(([,e])=>['进行中','待发生'].includes(e.状态));
-                if(openMacro.length<3)throw new Error('宏观事件不足：需要至少3个可推进宏观节点（进行中+待发生），当前仅'+openMacro.length+'个（进行中'+activeMacro.length+'个，待发生'+futureMacro.length+'个）');
+                // 数量不足只作为下一轮规划提示：不能因缺少宏观节点否决已验收的事件更新。
+                if(openMacro.length<3)return this.activityPolicy.ensureDelivery(next,timeline?.世界活动要求);
                 const stages=this.timeline.storyStages(next?.世界?.因果轨道?.故事线);
                 const names=new Set(allMacro.map(([name])=>name));
                 if(stages.length<3||stages.length>5||stages.some(name=>!names.has(name)))throw new Error('因果轨道未形成有效宏观投影：请用已建立的宏观节点生成3~5节点故事线');
@@ -6225,7 +6240,9 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                     recoveryStat.世界[PATH]=Object.assign(emptyState(),recoveryStat.世界[PATH]||{});
                     normalizeBackendState(recoveryStat);
                     const recoveryTimeline=this.services.timelinePolicy.timelineState(recoveryStat);
-                    const needsMacroRepair=this.config.requireMacroBackbone!==false&&(recoveryTimeline.需要补充远期||recoveryTimeline.因果轨道需重建);
+                    const needsMacroRepair=this.config.requireMacroBackbone!==false&&(
+                        recoveryTimeline.宏观节点数===0||(!recoveryTimeline.需要补充远期&&recoveryTimeline.因果轨道需重建)
+                    ); // 有1～2个开放节点时等待下一次正常推进补充，不为数量不足重复请求本楼层。
                     const needsScheduleRepair=unscheduledEvents(recoveryStat).length>0;
                     const needsLifecycleRepair=staleActiveEvents(recoveryStat).length>0||temporalAnomalies(recoveryStat).length>0;
                     const needsAlienRepair=activeAlienActivityRequirements(recoveryStat).some(item=>{

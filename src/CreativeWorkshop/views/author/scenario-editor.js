@@ -118,7 +118,7 @@ export function createScenarioEditor({doc,initial={},onChange=null}) {
     return ranges[type]===undefined?'chapter':type;
   }
   function appendCard(value={},withChange=true){
-    if(cards.length>=70)return;
+    if(cards.length>=394)return;
     const type=legacyType(value.type,value);
     const card=element(doc,'div','','rw-opening-equipment-card');
     card.style.marginBlock='10px';

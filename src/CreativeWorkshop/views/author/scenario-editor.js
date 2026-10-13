@@ -170,7 +170,7 @@ export function createScenarioEditor({doc,initial={},onChange=null}) {
     appendCard({type:'chapter'},false);
   }
   add.addEventListener('click',()=>appendCard({type:'chapter'}));
-  list.addEventListener('input',syncCards);
+  root.addEventListener('input',syncCards);
   root.addEventListener('change',notify);
   syncCards();
   return {node:root,values(){

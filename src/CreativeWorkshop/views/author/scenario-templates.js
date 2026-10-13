@@ -1,7 +1,7 @@
 // 副本编辑器：章节是蓝灯，种族/势力/组织/冒险区域是绿灯；全部角色定义前。
 // 世界设置由开局写入现有 MVU；无需为章节新增时间、阶段或事件字段。
 export const SCENARIO_ORDER_START = 101;
-export const SCENARIO_MAX_SECTIONS = 70;
+export const SCENARIO_MAX_SECTIONS = 394;
 export const SCENARIO_ORDER_RANGES = Object.freeze({
   chapter: [101,200],
   race: [201,299],

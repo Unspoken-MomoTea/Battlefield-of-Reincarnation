@@ -1,4 +1,4 @@
-// 副本作者编辑原著资料：没有手动故事线 / 下一节点，编译器从宏观事件名称生成。
+// 副本作者编辑章节与世界资料：章节次序生成因果轨道，章节内容可以自由描写时间与事件。
 function element(doc,tag,label='',className='') {
   const el=doc.createElement(tag);
   if(label)el.textContent=label;
@@ -45,7 +45,7 @@ function bindCalendar(doc,textInput){
 export function createScenarioEditor({doc,initial={},onChange=null}) {
   const root=element(doc,'div','','rw-scenario-editor');
   const notify=()=>{try{onChange?.();}catch{}};
-  root.append(element(doc,'p','世界基础信息写入 MVU。宏观剧情采用蓝灯+EJS 阶段筛选，地区和阵营由作者选择是否编写，采用绿灯+EJS 筛选。离开副本或明确完结时不再注入副本正文。','rw-muted'));
+  root.append(element(doc,'p','世界初始信息写入现有 MVU。第一章自动成为「当前阶段」，后续章节按编辑顺序生成「故事线」。章节蓝灯只依据世界名称与当前阶段输出；其余资料为绿灯关键词。','rw-muted'));
   const mode=picker(doc,'scenario_mode',[['both','多元副本与单一世界'],['multi','仅多元副本'],['single','仅单一世界']],initial.scenario_mode||'both');
   const worldName=control(doc,'scenario_world',initial.scenario_world||'',false,'例如：艾泽拉斯（独立于工坊作品标题）');
   const rank=picker(doc,'scenario_rank',['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ'].map(v=>[v,v]),initial.scenario_rank||'Ⅲ');
@@ -79,71 +79,100 @@ export function createScenarioEditor({doc,initial={},onChange=null}) {
     field(doc,'经济波动',fluctuation,'写入 世界.货币.经济波动；可留空。'),
     field(doc,'世界法则',laws,'副本独特规则；已有通用规则无需重复填写。'),
     field(doc,'切入身份',identity),
-    field(doc,'初始时间锚点（可选）',start,'日历不是必填项；可用日历选日期、手写作品时期，或留空让世界推进确定。'),
+    field(doc,'开局时间（可选）',start,'这里仅初始化世界时间；每章的时间、情节、前因都直接写在章节内容里。'),
     bindCalendar(doc,start), calendarDetails,
   );
-  const title=element(doc,'div','副本资料 · 时间轴','rw-publish-step-title');
-  const help=element(doc,'p','宏观剧情：蓝灯候选 + EJS 当前阶段/日期窗口，组成故事线；地区/阵营：作者可选，绿灯关键词 + EJS 世界/日期。短期事件由 AI 自行生成，不需作者创建。','rw-muted');
+  const title=element(doc,'div','章节与世界书资料','rw-publish-step-title');
+  const help=element(doc,'p','章节：蓝灯 · 101–200；种族：绿灯 · 201–299；势力：绿灯 · 302–349；组织：绿灯 · 352–399；冒险区域：绿灯 · 401–499。全部位于角色定义前，不需要单独设置章节日期。','rw-muted');
   const list=element(doc,'div','','rw-scenario-section-list');
-  const add=element(doc,'button','＋ 新增资料卡片','rw-button');add.type='button';
-  root.append(title,help,list,add);
+  const add=element(doc,'button','＋ 新增章节 / 资料','rw-button');add.type='button';
+  const storyPreview=element(doc,'p','','rw-muted');
+  root.append(title,help,list,add,storyPreview);
   const cards=[];
+  const types=[
+    ['chapter','章节（蓝灯）'],['race','种族（绿灯）'],['force','势力（绿灯）'],
+    ['organization','组织（绿灯）'],['area','冒险区域（绿灯）'],
+  ];
+  const ranges={chapter:101,race:201,force:302,organization:352,area:401};
   function syncCards(){
-    cards.forEach((card,index)=>{
-      const label=card.querySelector('[data-scenario-label]');
-      if(label)label.textContent='资料 '+(index+1);
+    const counters={chapter:0,race:0,force:0,organization:0,area:0};
+    const chapterNames=[];
+    cards.forEach(card=>{
+      const type=card.querySelector('[name="scenario_section_type"]').value;
+      const order=ranges[type]+counters[type]++;
+      card.querySelector('[data-scenario-label]').textContent=(type==='chapter'?'章节':'资料')+' · 顺序 '+order;
+      if(type==='chapter'){
+        const name=card.querySelector('[name="scenario_section_title"]').value.trim();
+        if(name)chapterNames.push(name);
+      }
     });
+    storyPreview.textContent=chapterNames.length
+      ?'开局当前阶段：'+chapterNames[0]+'　|　故事线：'+chapterNames.join(' → ')
+      :'请至少添加一个章节，第一章的名称会成为开局当前阶段。';
     notify();
+  }
+  function legacyType(type,value){
+    if(type==='macro'||type==='event'||type==='always')return 'chapter';
+    if(type==='faction')return 'race';
+    if(type==='near'||type==='location')return 'area';
+    return ranges[type]===undefined?'chapter':type;
   }
   function appendCard(value={},withChange=true){
     if(cards.length>=70)return;
+    const type=legacyType(value.type,value);
     const card=element(doc,'div','','rw-opening-equipment-card');
     card.style.marginBlock='10px';
     const head=element(doc,'div','','rw-opening-skill-head');
-    const label=element(doc,'strong','资料 '+(cards.length+1));label.setAttribute('data-scenario-label','');
+    const label=element(doc,'strong','');
+    label.setAttribute('data-scenario-label','');
     const up=element(doc,'button','↑','rw-button');up.title='前移';up.type='button';
     const down=element(doc,'button','↓','rw-button');down.title='后移';down.type='button';
     const del=element(doc,'button','删除','rw-button danger');del.type='button';
     head.append(label,up,down,del);
     const name=control(doc,'scenario_section_title',value.title||'',false,'例如：斯坦索姆抉择');
-    const legacyType=value.type==='near'?(value.location||value.match?'location':'always'):value.type;
-    const kind=picker(doc,'scenario_section_type',[['macro','宏观剧情事件（蓝灯·阶段筛选）'],['location','地区资料（绿灯）'],['faction','阵营资料（绿灯·种族/鬼怪等）'],['always','世界基础资料（蓝灯·副本内）']],legacyType==='event'?'macro':legacyType||'macro');
-    const clock=picker(doc,'scenario_section_time_type',[['phase','作品时期 / 模糊时间'],['date','明确日期（日历）'],['after','前置事件之后']],value.timeType||'phase');
-    const time=control(doc,'scenario_section_time',value.time||'',false,'例如：第三次战争初期');
-    const timeField=field(doc,'关联日期或时期（可选）',time,'明确日期用于 EJS 起始时间筛选；模糊时期只作参考，不硬拦截。');
-    const calendar=bindCalendar(doc,time);
-    const after=control(doc,'scenario_section_after',value.after||'',false,'填写另一条宏观事件的名称');
-    const afterField=field(doc,'前置事件（选择「前置事件之后」时填写）',after,'其他时间类型均可留空。');
-    const location=control(doc,'scenario_section_location',value.location||value.match||'',false,'例如：东部王国-洛丹伦');
-    const locationField=field(doc,'关联地区（可选）',location);
-    const condition=control(doc,'scenario_section_condition',value.condition||'',false,'可选：例如守军集结后');
-    const conditionField=field(doc,'成立条件（可选）',condition);
-    const keywords=control(doc,'scenario_section_keywords',value.keywords||'',false,'多个关键词用逗号分隔，例如：斯坦索姆,阿尔萨斯');
-    const keywordField=field(doc,'绿灯关键词（可选）',keywords,'地区/阵营自动使用条目名称；地区也包含地点，可补充种族、怪物或组织的别名。');
-    const body=control(doc,'scenario_section_content',value.content||'',true,'原作背景、剧情、世界知识……');
+    const kind=picker(doc,'scenario_section_type',types,type);
+    let bodyValue=String(value.content||'');
+    if(value.type==='macro'||value.type==='event'){
+      if(value.time&&!bodyValue.includes(value.time))bodyValue='【时间参考】'+value.time+'\n'+bodyValue;
+      if(value.condition&&!bodyValue.includes(value.condition))bodyValue+='\n【剧情参考】'+value.condition;
+    }
+    const body=control(doc,'scenario_section_content',bodyValue,true,'本章可自由写时间、事件、人物、剧情走向，或填写种族/势力/组织/区域设定');
     body.rows=5;
-    card.append(head,field(doc,'资料名称 *',name),field(doc,'资料类型',kind),keywordField,field(doc,'时间表达',clock),
-      timeField,calendar,afterField,locationField,conditionField,field(doc,'详细资料 *',body));
-    const visibility=()=>{
-      const dynamic=kind.value==='macro'||kind.value==='location'||kind.value==='faction';
-      keywordField.hidden=kind.value==='macro'||kind.value==='always';
-      clock.parentElement.hidden=!dynamic;
-      timeField.hidden=!dynamic||clock.value==='after';
-      calendar.hidden=!dynamic||clock.value!=='date';
-      afterField.hidden=kind.value!=='macro'||clock.value!=='after';
-      conditionField.hidden=kind.value!=='macro';
-      locationField.hidden=kind.value==='always'||kind.value==='faction';
-    };
-    kind.addEventListener('change',visibility);clock.addEventListener('change',visibility);
-    up.addEventListener('click',()=>{const i=cards.indexOf(card);if(i>0){cards.splice(i,1);cards.splice(i-1,0,card);list.insertBefore(card,cards[i]||null);syncCards();}});
-    down.addEventListener('click',()=>{const i=cards.indexOf(card);if(i>=0&&i<cards.length-1){cards.splice(i,1);cards.splice(i+1,0,card);list.insertBefore(card,cards[i+2]||null);syncCards();}});
-    del.addEventListener('click',()=>{cards.splice(cards.indexOf(card),1);card.remove();syncCards();});
+    const keywords=control(doc,'scenario_section_keywords',value.keywords||'',false,'例如：部落,兽人,萨满');
+    const keyField=field(doc,'绿灯关键词（可选）',keywords,'自动包含资料名称，额外填写别称即可。');
+    const areaAlias=control(doc,'scenario_section_location',value.location||value.match||'',false,'例如：东部王国-洛丹伦');
+    const aliasField=field(doc,'区域别名（可选）',areaAlias,'也会作为绿灯关键词。');
+    card.append(head,field(doc,'资料类型',kind),field(doc,'名称 *',name),
+      field(doc,'正文 *',body),keyField,aliasField);
+    function visibility(){
+      keyField.hidden=kind.value==='chapter';
+      aliasField.hidden=kind.value!=='area';
+    }
+    kind.addEventListener('change',()=>{visibility();syncCards();});
+    up.addEventListener('click',()=>{
+      const i=cards.indexOf(card);
+      if(i>0){cards.splice(i,1);cards.splice(i-1,0,card);list.append(...cards);syncCards();}
+    });
+    down.addEventListener('click',()=>{
+      const i=cards.indexOf(card);
+      if(i>=0&&i<cards.length-1){cards.splice(i,1);cards.splice(i+1,0,card);list.append(...cards);syncCards();}
+    });
+    del.addEventListener('click',()=>{
+      const i=cards.indexOf(card);
+      if(i>=0){cards.splice(i,1);card.remove();syncCards();}
+    });
     list.append(card);cards.push(card);visibility();
-    if(withChange)notify();
+    if(withChange)syncCards();
   }
-  for(const value of initial.scenario_sections||[])appendCard(value,false);
-  add.addEventListener('click',()=>appendCard());
-  root.addEventListener('input',notify);root.addEventListener('change',notify);
+  if(initial.scenario_sections?.length){
+    for(const value of initial.scenario_sections)appendCard(value,false);
+  } else {
+    appendCard({type:'chapter'},false);
+  }
+  add.addEventListener('click',()=>appendCard({type:'chapter'}));
+  list.addEventListener('input',syncCards);
+  root.addEventListener('change',notify);
+  syncCards();
   return {node:root,values(){
     return {
       scenario_world:worldName.value,scenario_mode:mode.value,scenario_time:start.value,
@@ -156,13 +185,9 @@ export function createScenarioEditor({doc,initial={},onChange=null}) {
       scenario_sections:cards.map(card=>({
         title:card.querySelector('[name="scenario_section_title"]').value,
         type:card.querySelector('[name="scenario_section_type"]').value,
-        timeType:card.querySelector('[name="scenario_section_time_type"]').value,
-        time:card.querySelector('[name="scenario_section_time"]').value,
-        after:card.querySelector('[name="scenario_section_after"]').value,
-        location:card.querySelector('[name="scenario_section_location"]').value,
-        condition:card.querySelector('[name="scenario_section_condition"]').value,
-        keywords:card.querySelector('[name="scenario_section_keywords"]').value,
         content:card.querySelector('[name="scenario_section_content"]').value,
+        keywords:card.querySelector('[name="scenario_section_keywords"]').value,
+        location:card.querySelector('[name="scenario_section_location"]').value,
       })),
     };
   }};

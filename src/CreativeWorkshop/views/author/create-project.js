@@ -77,7 +77,7 @@ export function bindCreateProjectFlow({
       opening_character: ['开局角色', '填写Ⅰ-Ⅲ阶角色资料、1项血统和最多2项技能。'],
       opening_partner: ['开局伙伴', '填写Ⅰ-Ⅲ阶伙伴资料、1项血统和最多2项技能；可选附带角色世界书。'],
       store_catalog: ['开局商店', '逐项添加装备、道具或技能；不需要填写 JSON。'],
-      scenario: ['副本编辑器', '填写 MVU 世界初始信息与剧情资料；故事线自动由宏观事件卡生成，资料写入 200～300 顺序段的 EJS 世界书。'],
+      scenario: ['副本编辑器', '第一章自动成为当前阶段，章节依次组成故事线；章节蓝灯 101～200，种族/势力/组织/冒险区域按各自区间生成绿灯世界书。'],
     }[mode] || ['作品内容', '填写当前作品内容。'];
     if (contentTitle) contentTitle.textContent = copy[0];
     if (contentHelp) contentHelp.textContent = copy[1];

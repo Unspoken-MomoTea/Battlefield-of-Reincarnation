@@ -1,25 +1,24 @@
-// 副本是世界书 + 现有世界后台事件的数据来源，不创建新的 MVU 剧情字段。
-export const SCENARIO_ORDER_START = 200;
+// 副本编辑器：章节是蓝灯，种族/势力/组织/冒险区域是绿灯；全部角色定义前。
+// 世界设置由开局写入现有 MVU；无需为章节新增时间、阶段或事件字段。
+export const SCENARIO_ORDER_START = 101;
 export const SCENARIO_MAX_SECTIONS = 70;
-const SECTION_TYPES = new Set(['macro','location','faction','always']);
-const TIME_TYPES = new Set(['date','phase','after']);
-const MODES = new Set(['both','multi','single']);
-const clean = value => String(value ?? '').trim();
-function text(value, label, max = 16000) {
-  const content = clean(value);
-  if (content.length > max) throw new Error(label + '超过' + max + '字');
-  if (/<%/u.test(content)) throw new Error(label + '不能包含 EJS 代码');
+export const SCENARIO_ORDER_RANGES = Object.freeze({
+  chapter: [101,200],
+  race: [201,299],
+  force: [302,349],
+  organization: [352,399],
+  area: [401,499],
+});
+const MODES=new Set(['both','multi','single']);
+const clean=value=>String(value??'').trim();
+function text(value,label,max=16000){
+  const content=clean(value);
+  if(content.length>max)throw new Error(label+'超过'+max+'字');
+  if(/<%/u.test(content))throw new Error(label+'不能包含 EJS 代码');
   return content;
 }
-function safeName(value) { return String(value).replace(/[\\/:*?"<>|\u0000-\u001f]/g,'_').slice(0,65); }
-function dateKey(value) {
-  const hit = clean(value).match(/^(\d{1,4})年[- ]?(\d{1,2})月[- ]?(\d{1,2})日|^(\d{4})-(\d\d)-(\d\d)/u);
-  if (!hit) return '';
-  const y=+(hit[1]||hit[4]),m=+(hit[2]||hit[5]),d=+(hit[3]||hit[6]);
-  if(m<1||m>12||d<1||d>31)return '';
-  return String(y).padStart(4,'0')+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
-}
-function parseCalendar(source) {
+function safeName(value){return String(value).replace(/[\\/:*?"<>|\u0000-\u001f]/g,'_').slice(0,65);}
+function parseCalendar(source){
   const name=text(source.scenario_calendar_name,'历法名称',80);
   const raw=text(source.scenario_calendar_months,'每月天数',160);
   const leap=text(source.scenario_calendar_leap,'闰年规则',160);
@@ -29,168 +28,105 @@ function parseCalendar(source) {
     throw new Error('自定义历法需填写名称与1～24个月的有效天数');
   return {名称:name,月份天数:days,闰年规则:leap};
 }
-function customDateValid(value,calendar) {
-  if(!calendar)return false;
-  const m=clean(value).match(/^(\d{1,4})年[- ]?(\d{1,2})月[- ]?(\d{1,2})日/u);
-  if(!m)return false;
-  const month=Number(m[2]),day=Number(m[3]);
-  return month>=1&&month<=calendar.月份天数.length&&day>=1&&day<=calendar.月份天数[month-1];
+function normalizeType(row){
+  const type=clean(row?.type);
+  if(type==='macro'||type==='event')return 'chapter';
+  if(type==='location'||type==='near')return 'area';
+  if(type==='faction')return 'race'; // 上个测试版的「阵营资料」实际面向种族和怪物。
+  if(type==='always')return 'chapter'; // 旧版常驻正文转换为普通章节，不会永久常驻。
+  return Object.hasOwn(SCENARIO_ORDER_RANGES,type)?type:'chapter';
 }
-function keywordList(row) {
-  const candidates=[row.title, ...(row.type==='location'?[row.location]:[]),
-    ...String(row.keywords||'').split(/[,，、;；\n]+/u)];
-  return [...new Set(candidates.map(clean).filter(Boolean))].slice(0,32);
-}
-function dateExpression(row, calendar) {
-  if(row.timeType!=='date'||!row.time)return 'true';
-  // 时间字符串为作品时期时不能比较，退回关键词选择；不因未知时间封死副本。
-  const key=dateKey(row.time)||(customDateValid(row.time,calendar)
-    ? String(row.time).match(/^(\d{1,4})年[- ]?(\d{1,2})月[- ]?(\d{1,2})日/u).slice(1,4)
-      .map((n,i)=>n.padStart(i===0?4:2,'0')).join('-') : '');
-  return key?'(!__rwDate || __rwDate >= '+JSON.stringify(key)+')':'true';
-}
-// 只依赖现有 MVU：结算后的世界名称变化、明确终章阶段、最终宏观事件已完成。
-function completionExpression(finalTitle) {
-  const stage='String(_.get(__w,"因果轨道.当前阶段","")).trim()';
-  const finalState=finalTitle
-    ? 'String(_.get(__w,["后台","事件",'+JSON.stringify(finalTitle)+',"状态"],""))'
-    : '""';
-  return '(!["已通关","副本通关","副本结束","剧情完结","已完结"].includes('+stage+')'
-    +' && '+finalState+'!=="已完成")';
-}
-function macroExpression(row, macros, calendar) {
-  const name=JSON.stringify(row.title);
-  const status='String(_.get(__w,["后台","事件",'+name+',"状态"],""))';
-  const stage='String(_.get(__w,"因果轨道.当前阶段","")).trim()';
-  const next='String(_.get(__w,"因果轨道.下一节点","")).trim()';
-  const index=macros.findIndex(item=>item.title===row.title);
-  const date=dateKey(row.time)||(customDateValid(row.time,calendar)
-    ? String(row.time).match(/^(\d{1,4})年[- ]?(\d{1,2})月[- ]?(\d{1,2})日/u).slice(1,4)
-        .map((n,i)=>String(n).padStart(i===0?4:2,'0')).join('-'):'');
-  const nextDated=macros.slice(index+1).find(item=>dateKey(item.time));
-  const end=nextDated?dateKey(nextDated.time):'';
-  // 日期可比较时，以时间窗口推进；没有历法时回退已有因果轨道的阶段和下一节点。
-  const window=date?'(__rwDate && __rwDate >= '+JSON.stringify(date)
-    +(end && end>date?' && __rwDate < '+JSON.stringify(end):'')+')':'false';
-  const fallback=index===0?'(!'+stage+' && !'+next+')':'false';
-  const stageMatch='('+stage+'==='+name+' || ('+next+'==='+name
-    +' && (!'+stage+' || '+stage+'==="待初始化")) || '+fallback+')';
-  // 有实际可比较日期时以日期窗口为准，避免世界推进关闭后旧阶段长期挂住旧章节。
-  // 真正已开始的事件（进行中）可突破原定日期，允许玩家改变历史。
-  const current=date?'(__rwDate ? '+window+' : '+stageMatch+')':stageMatch;
-  return '!["已完成","已取消"].includes('+status+')'
-    +' && ('+status+'==="进行中" || '+current+')';
-}
-function entry(name, world, content, expression, order, keywords=[], finalTitle='') {
-  return {
-    name, enabled:true,
-    strategy:{type:keywords.length?'selective':'constant',keys:keywords,keys_secondary:{logic:'and_any',keys:[]},scan_depth:'same_as_global'},
-    position:{type:'before_character_definition',role:'system',order},
-    content:[
-      '<%_',
-      'const __rw = getMessageVar("stat_data", { defaults: {} }) || {};',
-      'const __w = _.get(__rw, "世界", {});',
-      'const __m = String(__w.时间||"").match(/(\\d{1,4})年[- ]?(\\d{1,2})月[- ]?(\\d{1,2})日|(\\d{4})-(\\d{2})-(\\d{2})/);',
-      'const __rwDate = __m ? [__m[1]||__m[4],__m[2]||__m[5],__m[3]||__m[6]].map((n,i)=>String(n).padStart(i?2:4,"0")).join("-") : "";',
-      'if (String(__w.名称 || "") === '+JSON.stringify(world)
-        +' && _.get(__rw,"系统状态.是否在主神空间",false)!==true'
-        +' && '+completionExpression(finalTitle)+' && ('+expression+')) {',
-      '_%>',
-      content,
-      '<%_ } _%>',
-    ].join('\n'),
-    probability:100, recursion:{prevent_incoming:true,prevent_outgoing:true},
-    extra:{reincarnationWorkshop:{scenario:true,scenarioWorld:world}},
-  };
-}
-function normalizeSections(rows, calendar) {
-  if(!Array.isArray(rows)||!rows.length)throw new Error('至少添加一条副本资料');
+function normalizeSections(rows){
+  if(!Array.isArray(rows)||!rows.length)throw new Error('请先添加第一章');
   if(rows.length>SCENARIO_MAX_SECTIONS)throw new Error('副本资料最多'+SCENARIO_MAX_SECTIONS+'条');
-  const result=rows.map((source,index)=>{
-    const title=text(source?.title,'第'+(index+1)+'条名称',100);
-    const content=text(source?.content,'第'+(index+1)+'条内容');
-    const type=SECTION_TYPES.has(source?.type)?source.type:source?.type==='event'?'macro':source?.type==='near'?(source?.location||source?.match?'location':'always'):'always';
-    const timeType=TIME_TYPES.has(source?.timeType)?source.timeType:'phase';
-    const time=text(source?.time,'第'+(index+1)+'条时间',160);
-    const after=text(source?.after,'第'+(index+1)+'条前因',100);
-    const location=text(source?.location|| (type==='location'?source?.match:''),'第'+(index+1)+'条地点',160);
-    const condition=text(source?.condition,'第'+(index+1)+'条条件',260);
-    const keywords=text(source?.keywords,'第'+(index+1)+'条关键词',1000);
-    if(!title||!content)throw new Error('第'+(index+1)+'条资料缺少名称或内容');
-    if(timeType==='date'&&time&&!dateKey(time)&&!customDateValid(time,calendar))throw new Error('「'+title+'」的日期格式应为 年-月-日，可改为作品时期');
-    if(type==='location'&&!location)throw new Error('「'+title+'」需要填写关联地区');
-    return {title,type,content,timeType,time,after,location,condition,keywords};
+  const sections=rows.map((row,index)=>{
+    const type=normalizeType(row);
+    const title=text(row?.title,'第'+(index+1)+'条名称',100);
+    let content=text(row?.content,'第'+(index+1)+'条内容');
+    const keywords=text(row?.keywords,'第'+(index+1)+'条关键词',1000);
+    const location=text(row?.location||row?.match,'第'+(index+1)+'条区域',160);
+    // 已保存的旧版资料不会因移除日期和前因输入而丢掉作者写过的设定。
+    if(row?.type==='macro'||row?.type==='event'){
+      const oldTime=text(row?.time,'旧章节日期',160);
+      const oldCondition=text(row?.condition,'旧章节条件',260);
+      if(oldTime&&!content.includes(oldTime))content='【时间参考】'+oldTime+'\n'+content;
+      if(oldCondition&&!content.includes(oldCondition))content+=' \n【剧情参考】'+oldCondition;
+    }
+    if(!title||!content)throw new Error('第'+(index+1)+'条资料需要名称与正文');
+    return {title,type,content,keywords,location};
   });
-  const names=new Set();
-  for(const row of result) {
-    if(names.has(row.title))throw new Error('副本资料名称不能重复：'+row.title);
-    if(row.title==='__proto__'||row.title==='constructor'||row.title==='prototype')throw new Error('资料名称不可使用保留字');
-    names.add(row.title);
+  if(!sections.some(row=>row.type==='chapter'))throw new Error('副本至少需要第一章');
+  const usedNames=new Set();
+  const counts={};
+  for(const row of sections){
+    if(usedNames.has(row.title))throw new Error('资料名称不能重复：'+row.title);
+    if(['__proto__','constructor','prototype'].includes(row.title))throw new Error('请不要使用保留名称');
+    usedNames.add(row.title);
+    counts[row.type]=(counts[row.type]||0)+1;
+    const [start,end]=SCENARIO_ORDER_RANGES[row.type];
+    if(counts[row.type]>end-start+1)throw new Error('「'+row.type+'」分类已超过顺序范围 '+start+'–'+end);
   }
-  const macros=result.filter(row=>row.type==='macro'),macroNames=new Set(macros.map(row=>row.title));
-  for(const row of macros) {
-    if(row.timeType==='after'&&!row.after)throw new Error('「'+row.title+'」需要选择前置事件');
-    if(row.after && (!macroNames.has(row.after)||row.after===row.title))throw new Error('「'+row.title+'」的前置事件不存在或指向自身');
-  }
-  const parents=new Map(macros.map(row=>[row.title,row.after]));
-  for(const row of macros) {
-    const seen=new Set();let name=row.title;
-    while(name){if(seen.has(name))throw new Error('宏观剧情存在循环前因：'+name);seen.add(name);name=parents.get(name);}
-  }
-  return result;
+  return sections;
 }
-export function orderedScenarioMacros(rows) {
-  const input=rows.filter(row=>row.type==='macro');
-  const sourceIndex=new Map(input.map((row,index)=>[row.title,index]));
-  const output=[],pending=new Map(input.map(row=>[row.title,row]));
-  while(pending.size) {
-    const ready=[...pending.values()].filter(row=>!row.after||!pending.has(row.after));
-    if(!ready.length)throw new Error('宏观事件存在循环前因');
-    ready.sort((a,b)=> {
-      const aKey=dateKey(a.time),bKey=dateKey(b.time);
-      return aKey&&bKey ? aKey.localeCompare(bKey) : (aKey?-1:bKey?1:sourceIndex.get(a.title)-sourceIndex.get(b.title));
-    });
-    const first=ready[0];output.push(first);pending.delete(first.title);
-  }
-  return output;
+export function orderedScenarioMacros(rows){
+  return (rows||[]).filter(row=>normalizeType(row)==='chapter');
 }
-export function scenarioEventRecords(scenario, {max=5}={}) {
-  const macros=orderedScenarioMacros(scenario.sections||[]);
-  const initialKey=dateKey(scenario.time);
-  const future=macros.filter(row=>!initialKey||!dateKey(row.time)||dateKey(row.time)>=initialKey);
-  const current=macros.filter(row=>initialKey&&dateKey(row.time)&&dateKey(row.time)<=initialKey);
-  const chosen=[...current.slice(-1),...future].filter((row,index,array)=>array.findIndex(x=>x.title===row.title)===index).slice(0,max);
+export function scenarioEventRecords(scenario,{max=5}={}){
+  const chapters=orderedScenarioMacros(scenario.sections||[]).slice(0,max);
   const records={};
-  let previous='';
-  chosen.forEach((row,index)=>{
-    const active=index===0&&current.some(e=>e.title===row.title);
-    records[row.title]={
-      分类:'宏观节点', 状态:active?'进行中':'待发生',
-      描述:row.content.slice(0,140),
-      时间:row.timeType==='after'?(row.after+'之后'):(row.time|| (previous?previous+'之后':scenario.time||'')),
-      条件:row.condition||(row.after?'前置事件「'+row.after+'」具备触发条件':'按照世界当前事实自然发展'),
-      前因:row.after&&records[row.after]?[row.after]:(previous?[previous]:[]),
-      默认走向:row.content.slice(0,200),结果:'',公开征兆:'',地点:row.location||'',
-      参与者:[],关联任务:[],可见影响:[],
+  chapters.forEach((chapter,index)=>{
+    const previous=chapters[index-1]?.title||'';
+    records[chapter.title]={
+      分类:'宏观节点',状态:index===0?'进行中':'待发生',
+      描述:chapter.content.slice(0,140),时间:index===0?(scenario.time||''):(previous+'之后'),
+      条件:previous?'上一章节推进到此处':'按当前剧情自然发展',
+      前因:previous?[previous]:[],默认走向:chapter.content.slice(0,200),
+      结果:'',公开征兆:'',地点:'',参与者:[],关联任务:[],可见影响:[],
     };
-    previous=row.title;
   });
   return records;
 }
-function sceneExpression(row,calendar,macros) {
-  const date=dateExpression(row,calendar);
-  if(row.type==='always')return 'true';
-  if(row.type==='faction')return date;
-  if(row.type==='location'){
-    const place=JSON.stringify(row.location);
-    const placeCheck='(!String(__w.地点||"").trim() || String(__w.地点||"")==="待初始化"'
-      +' || String(__w.地点||"").includes('+place+') || '+place+'.includes(String(__w.地点||"")))';
-    return '('+placeCheck+' && '+date+')';
-  }
-  return macroExpression(row,macros,calendar);
+function keywordList(row){
+  const candidates=[row.title,...(row.type==='area'&&row.location?[row.location]:[]),
+    ...String(row.keywords||'').split(/[,，、;；\n]+/u)];
+  return [...new Set(candidates.map(clean).filter(Boolean))].slice(0,32);
 }
-export function buildScenarioArtifacts(source, projectName) {
+function commonGuard(world){
+  return 'String(__w.名称||"")==='+JSON.stringify(world)
+    +' && _.get(__rw,"系统状态.是否在主神空间",false)!==true'
+    +' && !["已通关","副本通关","副本结束","剧情完结","已完结"].includes(String(_.get(__w,"因果轨道.当前阶段","")).trim())';
+}
+function chapterExpression(title,names){
+  // 只看已有的「当前阶段」；允许阶段是带章节名称的自然语言描述，不增加硬性 AI 验收。
+  // 优先完全匹配，避免名称存在包含关系时多个蓝灯章节同时出现。
+  const titles=JSON.stringify(names);
+  return '(function(){ const __stage=String(_.get(__w,"因果轨道.当前阶段","")||"").trim();'
+    +'const __titles='+titles+';'
+    +'const __exact=__titles.find(name=>name===__stage);'
+    +'const __partial=__titles.filter(name=>__stage.includes(name)).sort((a,b)=>b.length-a.length)[0];'
+    +'const __active=__exact||__partial||((!__stage||__stage==="待初始化")?__titles[0]:"");'
+    +'return __active==='+JSON.stringify(title)+'; })()';
+}
+function entry(name,world,content,condition,order,keywords=[]){
+  return {
+    name,enabled:true,
+    strategy:{type:keywords.length?'selective':'constant',keys:keywords,
+      keys_secondary:{logic:'and_any',keys:[]},scan_depth:'same_as_global'},
+    position:{type:'before_character_definition',role:'system',order},
+    content:[
+      '<%_',
+      'const __rw=getMessageVar("stat_data",{defaults:{}})||{};',
+      'const __w=_.get(__rw,"世界",{});',
+      'if(('+commonGuard(world)+') && ('+condition+')){',
+      '_%>',content,'<%_ } _%>',
+    ].join('\n'),
+    probability:100,recursion:{prevent_incoming:true,prevent_outgoing:true},
+    extra:{reincarnationWorkshop:{scenario:true,scenarioWorld:world}},
+  };
+}
+export function buildScenarioArtifacts(source,projectName){
   const world=text(source.scenario_world,'副本世界名称',80);
+  if(!world)throw new Error('请填写世界名称');
   const time=text(source.scenario_time,'初始时间锚点',160);
   const laws=text(source.scenario_laws,'世界法则',1200);
   const location=text(source.scenario_location,'初始地点',160);
@@ -203,73 +139,49 @@ export function buildScenarioArtifacts(source, projectName) {
   };
   const identity=text(source.scenario_identity,'切入身份',160);
   const mode=MODES.has(source.scenario_mode)?source.scenario_mode:'both';
-  if(!world)throw new Error('请填写副本世界名称（写入 MVU 的 世界.名称），不能只填写工坊作品标题');
   const calendar=parseCalendar(source);
-  const sections=normalizeSections(source.scenario_sections||[],calendar);
-  const macros=orderedScenarioMacros(sections);
-  const finalTitle=macros.length?macros[macros.length-1].title:'';
-  const current=macros.filter(row=>dateKey(time)&&dateKey(row.time)&&dateKey(row.time)<=dateKey(time)).at(-1);
-  const future=macros.filter(row=>!dateKey(time)||!dateKey(row.time)||dateKey(row.time)>dateKey(time));
-  const initialTime=time; // 作者留空时间锚点时，不从未来事件杜撰开局日期。
-  const stage=current?.title||future[0]?.title||'待初始化';
-  const initialFive=[...new Set([...(current?[current.title]:[]),...future.map(row=>row.title)])].slice(0,5);
-  const story=initialFive.join(' -> '); // 一两个宏观节点也可开局，后续由世界推进补全。
-  const next=future[0]?.title||'';
-  const catalog=macros.map(row=>({name:row.title,time:row.timeType==='after'?row.after+'之后':row.time,after:row.after}));
-  const indexScript=[
-    '<%_',
-    'const __rw = getMessageVar("stat_data", { defaults: {} }) || {};',
-    'const __w = _.get(__rw, "世界", {});',
-    'if(String(__w.名称||"")==='+JSON.stringify(world)
-      +' && _.get(__rw,"系统状态.是否在主神空间",false)!==true'
-      +' && '+completionExpression(finalTitle)+'){',
-    'const __records=_.get(__w,"后台.事件",{});',
-    'const __all='+JSON.stringify(catalog)+';',
-    'const __at=String(__w.时间||"").match(/(\\d{1,4})年[- ]?(\\d{1,2})月[- ]?(\\d{1,2})日/);',
-    'const __key=__at?(String(__at[1]).padStart(4,"0")+"-"+String(__at[2]).padStart(2,"0")+"-"+String(__at[3]).padStart(2,"0")):"";',
-    'const __future=__all.filter(e=>{ const s=String((__records[e.name]||{}).状态||""); if(s==="已完成"||s==="已取消")return false; const d=String(e.time||"").match(/(\\d{1,4})年[- ]?(\\d{1,2})月[- ]?(\\d{1,2})日/); return !__key||!d||(String(d[1]).padStart(4,"0")+"-"+String(d[2]).padStart(2,"0")+"-"+String(d[3]).padStart(2,"0"))>=__key; });',
-    'const __next=__future.slice(0,5).map(e=>e.name+"("+e.time+")").join(" → ");',
-    'if(__next){ _%>',
-    '【原著近期宏观参考（仅供规划，不可强制修正已发生因果）】',
-    '<%= __next %>',
-    '<%_ } } _%>',
-  ].join('\n');
-  const entries=[
-    entry('[副本] '+world+' · 基础',world,[
-      '【世界名称】'+world,
-      '【世界初始地区】'+(location||'由开局决定'),
-      '【世界法则】'+(laws||'依当前世界设定'),
-      '【货币体系】'+(currency.体系||'由当前世界经济设定决定'),
-      currency.购买力基准?'【购买力基准】'+currency.购买力基准:'',
-      currency.经济波动?'【经济波动】'+currency.经济波动:'',
-      '【切入身份】'+(identity||'自由切入'),
-    ].filter(Boolean).join('\n'),'true',200,[],finalTitle),
-    { ...entry('[副本] '+world+' · 近期年表',world,'', 'false',201,[],finalTitle),content:indexScript },
-  ];
-  sections.forEach((row,index)=>{
-    const content=row.type==='macro'?'【原著事件】'+row.title+'\n【原定时间】'+(row.time||row.after+'之后')+'\n【原定情节】\n'+row.content:
-      '【'+(row.type==='location'?'地区资料':row.type==='faction'?'阵营资料':'世界资料')+'】'+row.title+'\n'+row.content;
-    entries.push(entry('[副本] '+world+' · '+row.title,world,content,sceneExpression(row,calendar,macros),210+index,
-      row.type==='always'||row.type==='macro'?[]:keywordList(row),finalTitle));
-
-  });
-  const data={schema_version:1,kind:'scenario',world,time:initialTime,stage,story,next,
+  const sections=normalizeSections(source.scenario_sections||[]);
+  const chapters=orderedScenarioMacros(sections);
+  const names=chapters.map(row=>row.title);
+  const stage=names[0],story=names.join(' -> '),next=names[1]||'';
+  const counters={chapter:0,race:0,force:0,organization:0,area:0};
+  const entries=[];
+  for(const row of sections){
+    const [base]=SCENARIO_ORDER_RANGES[row.type];
+    const order=base+counters[row.type]++;
+    const isChapter=row.type==='chapter';
+    const category={chapter:'原著章节',race:'种族资料',force:'势力资料',
+      organization:'组织资料',area:'冒险区域'}[row.type];
+    const body='【'+category+'】'+row.title+'\n'+row.content;
+    entries.push(entry('[副本] '+world+' · '+row.title,world,body,
+      isChapter?chapterExpression(row.title,names):'true',order,
+      isChapter?[]:keywordList(row)));
+  }
+  entries.sort((a,b)=>a.position.order-b.position.order);
+  const data={schema_version:1,kind:'scenario',world,time,stage,story,next,
     mode,laws,identity,calendar,rank,tier,location,currency,sections};
   data.initialEvents=scenarioEventRecords(data);
   return [
-    {kind:'worldbook',name:safeName(projectName||world)+'.scenario.worldbook.json',format:'json',content:{entries}},
+    {kind:'worldbook',name:safeName(projectName||world)+'.scenario.worldbook.json',
+      format:'json',content:{entries}},
     {kind:'data',name:safeName(projectName||world)+'.scenario.json',format:'json',content:data},
   ];
 }
-export function scenarioInitialValues(artifacts) {
+export function scenarioInitialValues(artifacts){
   const data=artifacts.find(row=>row?.kind==='data'&&row.content?.kind==='scenario')?.content;
   if(!data)return {};
   const sections=(data.sections||[]).map(row=>{
-    if(row.type==='event')return {title:row.title,type:'macro',content:row.content,timeType:'phase',time:'',after:'',location:'',condition:'',keywords:''};
-    if(row.type==='near')return {...row,type:row.location||row.match?'location':'always'};
-    return row;
+    // 世界书内容由原数据重建；兼容上一轮测试版的章名与时间字段。
+    if(row.type==='macro'||row.type==='event'){
+      let content=String(row.content||'');
+      if(row.time&&!content.includes(row.time))content='【时间参考】'+row.time+'\n'+content;
+      if(row.condition&&!content.includes(row.condition))content+='\n【剧情参考】'+row.condition;
+      return {...row,type:'chapter',content};
+    }
+    return {...row,type:normalizeType(row)};
   });
-  return {scenario_world:data.world||'',scenario_time:data.time||'',scenario_laws:data.laws||'',
+  return {
+    scenario_world:data.world||'',scenario_time:data.time||'',scenario_laws:data.laws||'',
     scenario_identity:data.identity||'',scenario_mode:data.mode||'both',
     scenario_rank:data.rank||'Ⅲ',scenario_tier:data.tier||'F~D',
     scenario_location:data.location||'',
@@ -279,5 +191,6 @@ export function scenarioInitialValues(artifacts) {
     scenario_calendar_name:data.calendar?.名称||'',
     scenario_calendar_months:Array.isArray(data.calendar?.月份天数)?data.calendar.月份天数.join(','):'',
     scenario_calendar_leap:data.calendar?.闰年规则||'',
-    scenario_sections:structuredClone(sections)};
+    scenario_sections:structuredClone(sections),
+  };
 }

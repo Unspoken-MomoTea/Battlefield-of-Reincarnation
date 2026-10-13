@@ -151,20 +151,54 @@
         singleWorldIdentityOverridden = false;
         updateFactionDesc();
     }
-    function switchPlotCat(key) {
-        activePlotCat = key;
+    function syncPlotModeForms() {
         const swForm = $('single-world-form');
-        if (key === 'single') {
-            singleWorldEnabled = true;
+        const mwForm = $('custom-multi-world-form');
+        if (swForm) {
+            swForm.style.display = activePlotCat === 'single' ? '' : 'none';
+            swForm.classList.toggle('expanded', activePlotCat === 'single');
+        }
+        if (mwForm) {
+            mwForm.style.display = activePlotCat === 'multi' ? '' : 'none';
+            if (activePlotCat !== 'multi') mwForm.classList.remove('expanded');
+        }
+        const customButton=$('mw-select-btn');
+        if (customButton) customButton.textContent=customMultiWorldEnabled
+            ? '✓ 已选择此世界（多元模式）' : '选择这个世界（多元模式）';
+    }
+    function switchPlotCat(key) {
+        if (!DB.plotCategories.some(cat=>cat.key===key)) return;
+        activePlotCat = key;
+        singleWorldEnabled = key === 'single';
+        if (key !== 'multi') customMultiWorldEnabled = false;
+        if (singleWorldEnabled) {
             selectedPlot = null;
-            if (swForm) { swForm.style.display = ''; swForm.classList.add('expanded'); }
             applySingleWorldIdentityOverride();
         } else {
-            singleWorldEnabled = false;
-            if (swForm) { swForm.classList.remove('expanded'); }
             restoreOriginalIdentity();
+            // 切换分类后不保留另一个分类的幽灵选中状态。
+            if (selectedPlot && !DB.plots.some(p=>p.id===selectedPlot&&p.cat===key)) selectedPlot=null;
         }
+        syncPlotModeForms();
         renderPlotTabs(); renderPlots(); updateBgSummary();
+    }
+    function selectCustomMultiWorld() {
+        if (activePlotCat!=='multi') return;
+        const name=$('mw-name').value.trim();
+        if (!name) {
+            $('mw-name').focus();
+            alert('请先填写想去的世界名称。');
+            return;
+        }
+        customMultiWorldEnabled=true;
+        singleWorldEnabled=false;
+        selectedPlot=null;
+        syncPlotModeForms();
+        renderPlots(); updateBgSummary();
+    }
+    function toggleCustomMultiWorld() {
+        if (activePlotCat!=='multi') return;
+        $('custom-multi-world-form').classList.toggle('expanded');
     }
     function renderPlots() {
         if (activePlotCat === 'single') {
@@ -210,7 +244,8 @@
     }
     function selectPlot(id) {
         selectedPlot = (selectedPlot === id) ? null : id;
-        if (selectedPlot) singleWorldEnabled = false;
+        if (selectedPlot) { singleWorldEnabled = false; customMultiWorldEnabled = false; }
+        syncPlotModeForms();
         renderPlots(); updateBgSummary();
     }
     function toggleSingleWorld() { $('single-world-form').classList.toggle('expanded'); }
@@ -229,6 +264,8 @@
         let plotText = '未选定';
         if (singleWorldEnabled) {
             plotText = '单一世界模式：' + ($('sw-name').value.trim() || '未填写');
+        } else if (customMultiWorldEnabled && activePlotCat==='multi') {
+            plotText = '多元世界 · 自定义：' + ($('mw-name').value.trim() || '未填写');
         } else if (selectedPlot) {
             const p = DB.plots.find(x => x.id === selectedPlot);
             if (p) plotText = p.name;

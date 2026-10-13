@@ -24,6 +24,7 @@
     let useCustomPartnerFlag = false;
     let partnerCostPaid = 0;        // 已为自定义伙伴建档扣除的空间币(改层级重算/删除退回)
     let singleWorldEnabled = false;
+    let customMultiWorldEnabled = false; // 仅多元世界下的自定义投放，不启用单一世界规则
     // 单一世界身份覆盖：进入单一世界时强制身份为「穿越者」，离开则还原角色第一页原始选择
     let originalIdentity = null;                  // 角色在第一页手动选定的原始身份
     let singleWorldIdentityOverridden = false;    // 当前是否处于「单一世界身份覆盖」状态

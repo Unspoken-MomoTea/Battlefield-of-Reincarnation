@@ -154,6 +154,19 @@
                 <span id="cp-cost-tip" class="cp-cost-tip"></span>
             </div>
         `;
+        $('custom-multi-world-body').innerHTML = `
+            <div class="single-world-banner">
+                <span class="sw-banner-icon">🌐</span>
+                <span class="sw-banner-text"><strong>仍属于多元世界模式</strong> —— 可指定想去的世界，不启用单一世界设置；系统会按多元世界规则继续游戏。</span>
+            </div>
+            <div class="grid-2">
+                <div class="form-group"><label>目标世界名称 *</label><input type="text" id="mw-name" class="form-control" placeholder="例如：艾泽拉斯" oninput="updateBgSummary()"></div>
+                <div class="form-group"><label>进入时间（可选）</label><input type="text" id="mw-time" class="form-control" placeholder="例如：第三次战争初期"></div>
+            </div>
+            <div class="form-group"><label>切入身份（可选）</label><input type="text" id="mw-identity" class="form-control" placeholder="留空由主神分配"></div>
+            <div class="form-group"><label>初始剧情（可选）</label><textarea id="mw-mainstate" class="form-control" rows="3" placeholder="可以描述希望进入的故事起点"></textarea></div>
+            <button type="button" class="btn primary" id="mw-select-btn" onclick="selectCustomMultiWorld()">选择这个世界（多元模式）</button>
+        `;
         $('single-world-body').innerHTML = `
             <div class="single-world-banner">
                 <span class="sw-banner-icon">🎯</span>

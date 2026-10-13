@@ -82,6 +82,11 @@
     }
 
     async function executeJourney() {
+        if (customMultiWorldEnabled && !singleWorldEnabled && activePlotCat==='multi' && !$('mw-name').value.trim()) {
+            alert('请填写多元世界的目标名称。');
+            $('mw-name').focus();
+            return;
+        }
         const name = $('f-name').value.trim() || '';
         const gender = $('f-gender').value;
         const age = $('f-age').value;
@@ -235,7 +240,7 @@
                 if (partnerNode && Array.isArray(partnerNode.身份)) partnerNode.身份[0] = $('f-identity').value;
                 if (partnerNode) _set(c, `stat_data.关系列表.${partnerNode.姓名}`, partnerNode);
 
-                // 世界信息精准注入
+                // 世界信息精准注入；自定义多元世界绝不启用单一世界开关。
                 if (singleWorldEnabled) {
                     _set(c, 'stat_data.系统状态.是否在主神空间', false);
                     const previousWorld = String((c.stat_data && c.stat_data.世界 && c.stat_data.世界.名称) || '');
@@ -252,6 +257,17 @@
                         });
                     }
 
+                } else if (customMultiWorldEnabled && activePlotCat==='multi') {
+                    const worldName=$('mw-name').value.trim();
+                    _set(c, 'stat_data.系统状态.是否在主神空间', false);
+                    _set(c, 'stat_data.世界.名称', worldName);
+                    _set(c, 'stat_data.世界.时间', $('mw-time').value.trim() || '待初始化');
+                    _set(c, 'stat_data.世界.因果轨道', {
+                        当前阶段:$('mw-mainstate').value.trim() || '待初始化',
+                        故事线:'',下一节点:'',偏移记录:{}
+                    });
+                    _set(c, 'stat_data.世界.异端雷达.当前模式', '');
+                    _set(c, 'stat_data.世界.异端雷达.名单', {});
                 } else if (selectedPlot) {
                     _set(c, 'stat_data.系统状态.是否在主神空间', false);
                     const p = DB.plots.find(x => x.id === selectedPlot);
@@ -307,6 +323,13 @@ ${selectedCurrency.体系?'货币体系: '+selectedCurrency.体系:''}
 ${selectedCurrency.购买力基准?'购买力基准: '+selectedCurrency.购买力基准:''}
 ${selectedCurrency.经济波动?'经济波动: '+selectedCurrency.经济波动:''}
 ${selectedScenarioInfo&&selectedScenarioInfo.story?'默认宏观故事线: '+selectedScenarioInfo.story:''}`;
+        } else if (customMultiWorldEnabled && activePlotCat==='multi') {
+            isWorldAnchored = true;
+            worldText = `【${$('mw-name').value.trim()}】（多元世界自定义投放，非单一世界）
+时间锚点: ${$('mw-time').value.trim() || '交由 AI 初始化'}
+初始剧情: ${$('mw-mainstate').value.trim() || '由剧情 AI 安排'}
+切入身份: ${$('mw-identity').value.trim() || '交由主神分配'}
+仍按多元世界规则运行；主神任务、干涉模式、世界难度等按常规多元世界流程初始化，不启用单一世界规则。`;
         } else if (selectedPlot) {
             const p = DB.plots.find(x => x.id === selectedPlot);
             if (p) {

@@ -177,6 +177,7 @@
         renderPlots();
         renderPartners();
         renderCustomForms();
+        syncPlotModeForms(); // 初始化仅显示当前分类对应的表单，避免单一世界表单泄露到多元/工坊。
         updateBgSummary();
         renderVariableApiMode();
 

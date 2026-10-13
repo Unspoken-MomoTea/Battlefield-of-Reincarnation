@@ -654,6 +654,14 @@
                         <div class="destined-ones-content" style="margin-top:12px;"><div class="destined-one-list" id="grid-plot"></div></div>
                     </div>
 
+                    <div class="collapsible-form" id="custom-multi-world-form" style="display:none;" data-hidden="1">
+                        <div class="form-header" onclick="toggleCustomMultiWorld()">
+                            <div><div class="form-title">🌐 自定义想去的世界</div><div class="form-desc">仅限多元世界：指定目标世界，仍采用多元世界规则、身份与结算方式。</div></div>
+                            <span class="toggle-icon">▼</span>
+                        </div>
+                        <div class="form-body" id="custom-multi-world-body"></div>
+                    </div>
+
                     <div class="collapsible-form" id="single-world-form" style="display:none;" data-hidden="1">
                         <div class="form-header" onclick="toggleSingleWorld()">
                             <div><div class="form-title">🌐 单一世界模式 (自定义想去的世界)</div><div class="form-desc">切换到「单一世界」选项卡后此处展开填写，系统将直接投放至你指定的世界</div></div>
@@ -1125,6 +1133,7 @@
     let useCustomPartnerFlag = false;
     let partnerCostPaid = 0;        // 已为自定义伙伴建档扣除的空间币(改层级重算/删除退回)
     let singleWorldEnabled = false;
+    let customMultiWorldEnabled = false; // 仅多元世界下的自定义投放，不启用单一世界规则
     // 单一世界身份覆盖：进入单一世界时强制身份为「穿越者」，离开则还原角色第一页原始选择
     let originalIdentity = null;                  // 角色在第一页手动选定的原始身份
     let singleWorldIdentityOverridden = false;    // 当前是否处于「单一世界身份覆盖」状态
@@ -1812,6 +1821,7 @@
         renderPlots();
         renderPartners();
         renderCustomForms();
+        syncPlotModeForms(); // 初始化仅显示当前分类对应的表单，避免单一世界表单泄露到多元/工坊。
         updateBgSummary();
         renderVariableApiMode();
 
@@ -2137,6 +2147,19 @@
                 <span id="cp-cost-tip" class="cp-cost-tip"></span>
             </div>
         `;
+        $('custom-multi-world-body').innerHTML = `
+            <div class="single-world-banner">
+                <span class="sw-banner-icon">🌐</span>
+                <span class="sw-banner-text"><strong>仍属于多元世界模式</strong> —— 可指定想去的世界，不启用单一世界设置；系统会按多元世界规则继续游戏。</span>
+            </div>
+            <div class="grid-2">
+                <div class="form-group"><label>目标世界名称 *</label><input type="text" id="mw-name" class="form-control" placeholder="例如：艾泽拉斯" oninput="updateBgSummary()"></div>
+                <div class="form-group"><label>进入时间（可选）</label><input type="text" id="mw-time" class="form-control" placeholder="例如：第三次战争初期"></div>
+            </div>
+            <div class="form-group"><label>切入身份（可选）</label><input type="text" id="mw-identity" class="form-control" placeholder="留空由主神分配"></div>
+            <div class="form-group"><label>初始剧情（可选）</label><textarea id="mw-mainstate" class="form-control" rows="3" placeholder="可以描述希望进入的故事起点"></textarea></div>
+            <button type="button" class="btn primary" id="mw-select-btn" onclick="selectCustomMultiWorld()">选择这个世界（多元模式）</button>
+        `;
         $('single-world-body').innerHTML = `
             <div class="single-world-banner">
                 <span class="sw-banner-icon">🎯</span>
@@ -2360,20 +2383,54 @@
         singleWorldIdentityOverridden = false;
         updateFactionDesc();
     }
-    function switchPlotCat(key) {
-        activePlotCat = key;
+    function syncPlotModeForms() {
         const swForm = $('single-world-form');
-        if (key === 'single') {
-            singleWorldEnabled = true;
+        const mwForm = $('custom-multi-world-form');
+        if (swForm) {
+            swForm.style.display = activePlotCat === 'single' ? '' : 'none';
+            swForm.classList.toggle('expanded', activePlotCat === 'single');
+        }
+        if (mwForm) {
+            mwForm.style.display = activePlotCat === 'multi' ? '' : 'none';
+            if (activePlotCat !== 'multi') mwForm.classList.remove('expanded');
+        }
+        const customButton=$('mw-select-btn');
+        if (customButton) customButton.textContent=customMultiWorldEnabled
+            ? '✓ 已选择此世界（多元模式）' : '选择这个世界（多元模式）';
+    }
+    function switchPlotCat(key) {
+        if (!DB.plotCategories.some(cat=>cat.key===key)) return;
+        activePlotCat = key;
+        singleWorldEnabled = key === 'single';
+        if (key !== 'multi') customMultiWorldEnabled = false;
+        if (singleWorldEnabled) {
             selectedPlot = null;
-            if (swForm) { swForm.style.display = ''; swForm.classList.add('expanded'); }
             applySingleWorldIdentityOverride();
         } else {
-            singleWorldEnabled = false;
-            if (swForm) { swForm.classList.remove('expanded'); }
             restoreOriginalIdentity();
+            // 切换分类后不保留另一个分类的幽灵选中状态。
+            if (selectedPlot && !DB.plots.some(p=>p.id===selectedPlot&&p.cat===key)) selectedPlot=null;
         }
+        syncPlotModeForms();
         renderPlotTabs(); renderPlots(); updateBgSummary();
+    }
+    function selectCustomMultiWorld() {
+        if (activePlotCat!=='multi') return;
+        const name=$('mw-name').value.trim();
+        if (!name) {
+            $('mw-name').focus();
+            alert('请先填写想去的世界名称。');
+            return;
+        }
+        customMultiWorldEnabled=true;
+        singleWorldEnabled=false;
+        selectedPlot=null;
+        syncPlotModeForms();
+        renderPlots(); updateBgSummary();
+    }
+    function toggleCustomMultiWorld() {
+        if (activePlotCat!=='multi') return;
+        $('custom-multi-world-form').classList.toggle('expanded');
     }
     function renderPlots() {
         if (activePlotCat === 'single') {
@@ -2419,7 +2476,8 @@
     }
     function selectPlot(id) {
         selectedPlot = (selectedPlot === id) ? null : id;
-        if (selectedPlot) singleWorldEnabled = false;
+        if (selectedPlot) { singleWorldEnabled = false; customMultiWorldEnabled = false; }
+        syncPlotModeForms();
         renderPlots(); updateBgSummary();
     }
     function toggleSingleWorld() { $('single-world-form').classList.toggle('expanded'); }
@@ -2438,6 +2496,8 @@
         let plotText = '未选定';
         if (singleWorldEnabled) {
             plotText = '单一世界模式：' + ($('sw-name').value.trim() || '未填写');
+        } else if (customMultiWorldEnabled && activePlotCat==='multi') {
+            plotText = '多元世界 · 自定义：' + ($('mw-name').value.trim() || '未填写');
         } else if (selectedPlot) {
             const p = DB.plots.find(x => x.id === selectedPlot);
             if (p) plotText = p.name;
@@ -2625,6 +2685,14 @@
                     <div class="cf-item-props"><p><strong>主线状态:</strong><br>${$('sw-mainstate').value.trim().replace(/\n/g, '<br>') || '未填写'}</p></div>
                     <div class="cf-item-props"><p><strong>主神任务:</strong><br>${$('sw-goal').value.trim().replace(/\n/g, '<br>') || '未填写'}</p></div>
                 </div>`;
+        } else if (customMultiWorldEnabled && activePlotCat==='multi') {
+            plotHtml = `
+                <div class="cf-item">
+                    <div class="cf-item-head"><span class="cf-item-name" style="color:#fff">【多元世界 · 自定义】${esc($('mw-name').value.trim()||'未填写')}</span></div>
+                    <div class="cf-text"><strong>时间锚点:</strong> ${esc($('mw-time').value.trim()||'由AI安排')}</div>
+                    <div class="cf-text"><strong>切入身份:</strong> ${esc($('mw-identity').value.trim()||'由主神分配')}</div>
+                    <div class="cf-text"><strong>运行模式:</strong> 多元世界（非单一世界）</div>
+                </div>`;
         } else if (selectedPlot) {
             const p = DB.plots.find(x => x.id === selectedPlot);
             if (p) {
@@ -2754,11 +2822,25 @@
 
     function collectState() {
         const attrs = {}; document.querySelectorAll('.attr-input').forEach((input, idx) => { attrs[DB.attributes[idx]] = parseInt(input.value||0); });
-        return { name:$('f-name').value, gender:$('f-gender').value, age:$('f-age').value, race:$('f-race').value, identity:$('f-identity').value, attrs:attrs, coins:currentCoins, selectedItems:[...selectedItems], selectedPlot, selectedPartner, useCustomPartnerFlag, selectedOpeningCharacterId:(selectedOpeningCharacter ? selectedOpeningCharacter.id : '')||'', selectedOpeningPartnerId:(selectedOpeningPartner ? selectedOpeningPartner.id : '')||'', characterMode, partnerMode, singleWorldEnabled, customItems, customPartner:{name:$('cp-name').value,tier:$('cp-tier').value,race:$('cp-race').value,gender:$('cp-gender').value,app:$('cp-app').value,like:$('cp-like').value,bg:$('cp-bg').value}, singleWorld:{name:$('sw-name').value,time:$('sw-time').value,identity:$('sw-identity').value,mainstate:$('sw-mainstate').value,goal:$('sw-goal').value}, stabilityLocked: $('ws-lock') ? $('ws-lock').checked : false, partnerCostPaid, activePlotCat, originalIdentity, singleWorldIdentityOverridden };
+        return { name:$('f-name').value, gender:$('f-gender').value, age:$('f-age').value, race:$('f-race').value, identity:$('f-identity').value, attrs:attrs, coins:currentCoins, selectedItems:[...selectedItems], selectedPlot, selectedPartner, useCustomPartnerFlag, selectedOpeningCharacterId:(selectedOpeningCharacter ? selectedOpeningCharacter.id : '')||'', selectedOpeningPartnerId:(selectedOpeningPartner ? selectedOpeningPartner.id : '')||'', characterMode, partnerMode, singleWorldEnabled, customMultiWorldEnabled, customMultiWorld:{name:$('mw-name').value,time:$('mw-time').value,identity:$('mw-identity').value,mainstate:$('mw-mainstate').value}, customItems, customPartner:{name:$('cp-name').value,tier:$('cp-tier').value,race:$('cp-race').value,gender:$('cp-gender').value,app:$('cp-app').value,like:$('cp-like').value,bg:$('cp-bg').value}, singleWorld:{name:$('sw-name').value,time:$('sw-time').value,identity:$('sw-identity').value,mainstate:$('sw-mainstate').value,goal:$('sw-goal').value}, stabilityLocked: $('ws-lock') ? $('ws-lock').checked : false, partnerCostPaid, activePlotCat, originalIdentity, singleWorldIdentityOverridden };
     }
     
     function applyState(st) {
-        $('f-name').value = st.name||''; $('f-gender').value = st.gender||'男'; $('f-age').value = st.age||20; $('f-race').value = st.race||'人类'; $('f-identity').value = st.identity||'守护者'; currentCoins = (st.coins !== undefined && st.coins !== null ? st.coins : DB.initSpaceCoins); partnerCostPaid = st.partnerCostPaid || 0; $('val-coins').innerText = currentCoins; selectedItems = new Set(st.selectedItems||[]); selectedPlot = st.selectedPlot||null; selectedPartner = st.selectedPartner||null; useCustomPartnerFlag = !!st.useCustomPartnerFlag; characterMode=st.characterMode||'custom'; partnerMode=st.partnerMode||'library'; selectedOpeningCharacter=openingAssets.find(a=>a.id===st.selectedOpeningCharacterId)||null; selectedOpeningPartner=openingAssets.find(a=>a.id===st.selectedOpeningPartnerId)||null; singleWorldEnabled = !!st.singleWorldEnabled; customItems = st.customItems||[]; if (st.activePlotCat) activePlotCat = st.activePlotCat; else activePlotCat = 'multi'; originalIdentity = (st.originalIdentity !== undefined ? st.originalIdentity : null); singleWorldIdentityOverridden = !!st.singleWorldIdentityOverridden; document.querySelectorAll('.attr-input').forEach((input, idx) => { const savedAttr = st.attrs && st.attrs[DB.attributes[idx]]; input.value = (savedAttr !== undefined && savedAttr !== null) ? savedAttr : DB.attrMin; }); updateFactionDesc(); if (st.customPartner) { $('cp-name').value=st.customPartner.name||''; $('cp-tier').value=st.customPartner.tier||'F'; $('cp-race').value=st.customPartner.race||''; $('cp-gender').value=st.customPartner.gender||'男'; $('cp-app').value=st.customPartner.app||''; $('cp-like').value=st.customPartner.like||''; $('cp-bg').value=st.customPartner.bg||''; } if (st.singleWorld) { ['name','time','identity','mainstate','goal'].forEach(k => { const el=$('sw-'+k); if(el) el.value = st.singleWorld[k]||''; }); } const lockEl = $('ws-lock'); if (lockEl) lockEl.checked = !!st.stabilityLocked; const swForm = $('single-world-form'); if (swForm) { if (activePlotCat === 'single') { swForm.style.display=''; swForm.classList.add('expanded'); } else { swForm.classList.remove('expanded'); } } const idEl = $('f-identity'); if (idEl) { if (activePlotCat === 'single' || singleWorldIdentityOverridden) { if (!singleWorldIdentityOverridden) { originalIdentity = idEl.value; singleWorldIdentityOverridden = true; } idEl.value = IDENTITY_SINGLE_WORLD; idEl.disabled = true; singleWorldIdentityLocked = true; updateFactionDesc(); } else { idEl.disabled = false; singleWorldIdentityLocked = false; } } setCharacterMode(characterMode); setPartnerMode(partnerMode); renderOpeningCharacterLibrary(); renderOpeningPartnerLibrary(); calcTier(); renderItems(); renderSelectedPanel(); renderPlotTabs(); renderPlots(); renderPartners(); updateBgSummary(); const cpClearBtn = $('cp-clear-btn'); if (cpClearBtn) cpClearBtn.style.display = (useCustomPartnerFlag && selectedPartner === 'custom') ? '' : 'none';
+        $('f-name').value = st.name||''; $('f-gender').value = st.gender||'男'; $('f-age').value = st.age||20; $('f-race').value = st.race||'人类'; $('f-identity').value = st.identity||'守护者'; currentCoins = (st.coins !== undefined && st.coins !== null ? st.coins : DB.initSpaceCoins); partnerCostPaid = st.partnerCostPaid || 0; $('val-coins').innerText = currentCoins; selectedItems = new Set(st.selectedItems||[]); selectedPlot = st.selectedPlot||null; selectedPartner = st.selectedPartner||null; useCustomPartnerFlag = !!st.useCustomPartnerFlag; characterMode=st.characterMode||'custom'; partnerMode=st.partnerMode||'library'; selectedOpeningCharacter=openingAssets.find(a=>a.id===st.selectedOpeningCharacterId)||null; selectedOpeningPartner=openingAssets.find(a=>a.id===st.selectedOpeningPartnerId)||null; singleWorldEnabled = !!st.singleWorldEnabled; customMultiWorldEnabled=!!st.customMultiWorldEnabled; customItems = st.customItems||[]; if (st.activePlotCat) activePlotCat = st.activePlotCat; else activePlotCat = 'multi'; originalIdentity = (st.originalIdentity !== undefined ? st.originalIdentity : null); singleWorldIdentityOverridden = !!st.singleWorldIdentityOverridden; document.querySelectorAll('.attr-input').forEach((input, idx) => { const savedAttr = st.attrs && st.attrs[DB.attributes[idx]]; input.value = (savedAttr !== undefined && savedAttr !== null) ? savedAttr : DB.attrMin; }); updateFactionDesc(); if (st.customPartner) { $('cp-name').value=st.customPartner.name||''; $('cp-tier').value=st.customPartner.tier||'F'; $('cp-race').value=st.customPartner.race||''; $('cp-gender').value=st.customPartner.gender||'男'; $('cp-app').value=st.customPartner.app||''; $('cp-like').value=st.customPartner.like||''; $('cp-bg').value=st.customPartner.bg||''; } if (st.singleWorld) { ['name','time','identity','mainstate','goal'].forEach(k => { const el=$('sw-'+k); if(el) el.value = st.singleWorld[k]||''; }); } if (st.customMultiWorld) { ['name','time','identity','mainstate'].forEach(k=>{ const el=$('mw-'+k); if(el) el.value=st.customMultiWorld[k]||''; }); } const lockEl = $('ws-lock'); if (lockEl) lockEl.checked = !!st.stabilityLocked; singleWorldEnabled=activePlotCat==='single'; customMultiWorldEnabled=activePlotCat==='multi'&&customMultiWorldEnabled;
+        if (customMultiWorldEnabled) selectedPlot=null;
+        if (selectedPlot && !DB.plots.some(p=>p.id===selectedPlot&&p.cat===activePlotCat)) selectedPlot=null;
+        syncPlotModeForms();
+        const idEl=$('f-identity');
+        if(idEl) {
+            if(singleWorldEnabled) {
+                if(!singleWorldIdentityOverridden){originalIdentity=idEl.value;singleWorldIdentityOverridden=true;}
+                idEl.value=IDENTITY_SINGLE_WORLD;idEl.disabled=true;singleWorldIdentityLocked=true;updateFactionDesc();
+            } else {
+                idEl.disabled=false;singleWorldIdentityLocked=false;
+                if(singleWorldIdentityOverridden && originalIdentity!==null)idEl.value=originalIdentity;
+                singleWorldIdentityOverridden=false;
+            }
+        } setCharacterMode(characterMode); setPartnerMode(partnerMode); renderOpeningCharacterLibrary(); renderOpeningPartnerLibrary(); calcTier(); renderItems(); renderSelectedPanel(); renderPlotTabs(); renderPlots(); renderPartners(); updateBgSummary(); const cpClearBtn = $('cp-clear-btn'); if (cpClearBtn) cpClearBtn.style.display = (useCustomPartnerFlag && selectedPartner === 'custom') ? '' : 'none';
     }
     
     function openPresetModal() { renderPresetList(); $('preset-modal').style.display = 'flex'; }
@@ -2993,6 +3075,11 @@
     }
 
     async function executeJourney() {
+        if (customMultiWorldEnabled && !singleWorldEnabled && activePlotCat==='multi' && !$('mw-name').value.trim()) {
+            alert('请填写多元世界的目标名称。');
+            $('mw-name').focus();
+            return;
+        }
         const name = $('f-name').value.trim() || '';
         const gender = $('f-gender').value;
         const age = $('f-age').value;
@@ -3146,7 +3233,7 @@
                 if (partnerNode && Array.isArray(partnerNode.身份)) partnerNode.身份[0] = $('f-identity').value;
                 if (partnerNode) _set(c, `stat_data.关系列表.${partnerNode.姓名}`, partnerNode);
 
-                // 世界信息精准注入
+                // 世界信息精准注入；自定义多元世界绝不启用单一世界开关。
                 if (singleWorldEnabled) {
                     _set(c, 'stat_data.系统状态.是否在主神空间', false);
                     const previousWorld = String((c.stat_data && c.stat_data.世界 && c.stat_data.世界.名称) || '');
@@ -3163,6 +3250,17 @@
                         });
                     }
 
+                } else if (customMultiWorldEnabled && activePlotCat==='multi') {
+                    const worldName=$('mw-name').value.trim();
+                    _set(c, 'stat_data.系统状态.是否在主神空间', false);
+                    _set(c, 'stat_data.世界.名称', worldName);
+                    _set(c, 'stat_data.世界.时间', $('mw-time').value.trim() || '待初始化');
+                    _set(c, 'stat_data.世界.因果轨道', {
+                        当前阶段:$('mw-mainstate').value.trim() || '待初始化',
+                        故事线:'',下一节点:'',偏移记录:{}
+                    });
+                    _set(c, 'stat_data.世界.异端雷达.当前模式', '');
+                    _set(c, 'stat_data.世界.异端雷达.名单', {});
                 } else if (selectedPlot) {
                     _set(c, 'stat_data.系统状态.是否在主神空间', false);
                     const p = DB.plots.find(x => x.id === selectedPlot);
@@ -3218,6 +3316,13 @@ ${selectedCurrency.体系?'货币体系: '+selectedCurrency.体系:''}
 ${selectedCurrency.购买力基准?'购买力基准: '+selectedCurrency.购买力基准:''}
 ${selectedCurrency.经济波动?'经济波动: '+selectedCurrency.经济波动:''}
 ${selectedScenarioInfo&&selectedScenarioInfo.story?'默认宏观故事线: '+selectedScenarioInfo.story:''}`;
+        } else if (customMultiWorldEnabled && activePlotCat==='multi') {
+            isWorldAnchored = true;
+            worldText = `【${$('mw-name').value.trim()}】（多元世界自定义投放，非单一世界）
+时间锚点: ${$('mw-time').value.trim() || '交由 AI 初始化'}
+初始剧情: ${$('mw-mainstate').value.trim() || '由剧情 AI 安排'}
+切入身份: ${$('mw-identity').value.trim() || '交由主神分配'}
+仍按多元世界规则运行；主神任务、干涉模式、世界难度等按常规多元世界流程初始化，不启用单一世界规则。`;
         } else if (selectedPlot) {
             const p = DB.plots.find(x => x.id === selectedPlot);
             if (p) {

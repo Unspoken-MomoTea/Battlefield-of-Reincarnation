@@ -97,6 +97,9 @@ test('章节上移改变第一章与故事线，70章仅初始化五个宏观事
   assert.equal(long[0].content.entries.at(-1).position.order,170);
   assert.equal(Object.keys(long[1].content.initialEvents).length,5);
   assert.equal(long[1].content.story.split(' -> ').length,70);
+  const full=buildScenarioArtifacts({...sample,scenario_sections:Array.from({length:100},(_,i)=>({type:'chapter',title:'第'+i+'章',content:'章节'}))},'百章世界');
+  assert.equal(full[0].content.entries.at(-1).position.order,200,'101–200 区间应允许正好100章');
+  assert.throws(()=>buildScenarioArtifacts({...sample,scenario_sections:Array.from({length:101},(_,i)=>({type:'chapter',title:'第'+i+'章',content:'章节'}))},'世界'),/101–200/u);
   assert.throws(()=>buildScenarioArtifacts({...sample,scenario_sections:[
     {type:'chapter',title:'序章',content:'正文'},
     ...Array.from({length:49},(_,i)=>({type:'force',title:'势力'+i,content:'背景'})),
